@@ -19,7 +19,7 @@
 #ifndef __MSM_AUDIO_AAC_H
 #define __MSM_AUDIO_AAC_H
 
-#include <linux/msm_audio.h>
+#include <linux/msm_audio_1550.h>
 
 #define AUDIO_SET_AAC_CONFIG  _IOW(AUDIO_IOCTL_MAGIC, \
   (AUDIO_MAX_COMMON_IOCTL_NUM+0), unsigned)
@@ -36,6 +36,8 @@
 #define	AUDIO_AAC_FORMAT_RAW		0x0000
 #define	AUDIO_AAC_FORMAT_PSUEDO_RAW	0x0001
 #define AUDIO_AAC_FORMAT_LOAS		0x0002
+#define AUDIO_AAC_FORMAT_ADIF		0x0003
+
 
 #define AUDIO_AAC_OBJECT_LC            	0x0002
 #define AUDIO_AAC_OBJECT_LTP		0x0004

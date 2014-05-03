@@ -20,7 +20,7 @@ Original Auther:
 
 #ifndef __BATT_PARAM_CONFIG_H__
 #define __BATT_PARAM_CONFIG_H__
-#define HTC_BATT_BOARD_NAME "FLYER"
+#define HTC_BATT_BOARD_NAME "ACE"
 
 /*========================================================================================
 
@@ -29,6 +29,16 @@ battery parameter defines (depend on board design)
 ========================================================================================*/
 
 static BOOL support_ds2746_gauge_ic = TRUE;
+
+UINT32 ID_RANGE[] =
+{
+  /* id resister range = [min, max)*/
+  7150, 15500,   /* Sony 1300mAh (Formosa) */    /* 7.1k~15k */
+  27500, 49500,   /* Sony 1300mAh (HTE) */  	  /* 28k~49.5k */
+  15500, 27500,   /* Sanyo 1300mAh (HTE) */ 	  /* 16k~27k */
+  100, 7150,   /* Samsung 1230mAh */  	 /* 0.1k~7k */
+  0, 100,   /* HTC Extended 2300mAh */  	 /* 0k~0.1k */
+};
 
 /*This table is calculated according to temp formula for temp mapping.
 If temp_adc is located on 0-95, then the temp_01c is 700.
@@ -87,10 +97,161 @@ UINT32 *TEMP_MAP = TEMP_MAP_300K_100_4360;
 #define PD_T_COEF_DEFAULT	(250)
 #define CAPACITY_DEDUCTION_DEFAULT	(0)
 
+UINT32 FL_25[] =
+{
+  2300,   /* Unknown battery */
+  1280,   /* Sony 1300mAh (Formosa) */
+  1280,   /* Sony 1300mAh (HTE) */
+  1250,   /* Sanyo 1300mAh (HTE) */
+  1230,   /* Samsung 1230mAh */
+  2300,  /* HTC Extended 2300mAh */
+};
+
+UINT32 PD_M_COEF[] =
+{
+  /* for TAO PMA, this is defined as PD_M; for TPE PMA, this is defined as FT or t*/
+  24, 	/* Unknown battery */
+  24, 	/* Sony 1300mAh (Formosa) */
+  24, 	/* Sony 1300mAh (HTE) */
+  27, 	/* Sanyo 1300mAh (HTE) */
+  30,  /* Samsung 1230mAh */
+  30,  /* HTC Extended 2300mAh */ 
+};
+
+UINT32 PD_M_RESL[] =
+{
+  /* for TAO PMA, this is defined as PD_M; for TPE PMA, this is defined as FT or t*/
+  100,	/* Unknown battery */
+  100,	/* Sony 1300mAh (Formosa) */
+  100,	/* Sony 1300mAh (HTE) */
+  100,	/* Sanyo 1300mAh (HTE) */
+  100,  /* Samsung 1230mAh */
+  100,  /* HTC Extended 2300mAh */ 
+};
+
+UINT32 PD_T_COEF[] =
+{
+  /* Ex: 140 -> 0.014, 156 -> 0.0156*/
+  140,	/* Unknown battery */
+  140,	/* Sony 1300mAh (Formosa) */
+  140,	/* Sony 1300mAh (HTE) */
+  156,	/* Sanyo 1300mAh (HTE) */
+  250,	/* Samsung 1230mAh */
+  250,  /* HTC Extended 2300mAh */ 
+};
+
+/*! star_lee 20100426 - update KADC discharge parameter */
+UINT32 M_PARAMETER_SONY_1300MAH_FORMOSA[] =
+{
+  /* capacity (in 0.01%) -> voltage (in mV)*/
+  10000, 4100, 5500, 3839, 2400, 3759, 400, 3667, 0, 3397,
+};
+
 UINT32 M_PARAMETER_DEFAULT[] =
 {
   /* capacity (in 0.01%) -> voltage (in mV)*/
   10000, 4135, 7500, 3960, 4700, 3800, 1700, 3727, 900, 3674, 300, 3640, 0, 3420,
+};
+
+UINT32 M_PARAMETER_Samsung_1230MAH_FORMOSA[] =
+{
+  /* capacity (in 0.01%) -> voltage (in mV)*/
+  10000, 4135, 7500, 3960, 4700, 3800, 1700, 3727, 900, 3674, 300, 3640, 0, 3420,
+};
+
+UINT32 M_PARAMETER_HTC_2300MAH_FORMOSA[] =
+{
+  /* capacity (in 0.01%) -> voltage (in mV)*/
+  10000, 4135, 7500, 3960, 4700, 3800, 1700, 3727, 900, 3674, 300, 3640, 0, 3420,
+};
+
+
+UINT32 *M_PARAMTER_TABLE[] =
+{
+  /* Unknown battery */
+  (UINT32 *) (M_PARAMETER_SONY_1300MAH_FORMOSA),
+  /* same as Sony 1300mAh (Formosa) currently... */
+  /* Sony 1300mAh (Formosa) */
+  (UINT32 *) (M_PARAMETER_SONY_1300MAH_FORMOSA),
+  /* Sony 1300mAh (HTE) */
+  (UINT32 *) (M_PARAMETER_SONY_1300MAH_FORMOSA),
+  /* same as Sony 1300mAh (Formosa) currently... */
+  /* Sanyo 1300mAh (HTE) */
+  (UINT32 *) (M_PARAMETER_SONY_1300MAH_FORMOSA),
+  /* same as Sony 1300mAh (Formosa) currently... */
+  /* Samsung 1230mAh */
+  (UINT32 *) (M_PARAMETER_Samsung_1230MAH_FORMOSA),
+  /* HTC Extended 2300mAh */
+  (UINT32 *) (M_PARAMETER_HTC_2300MAH_FORMOSA),
+};
+
+INT32 TEMP_RANGE[] =
+{
+  /* mapping temp to temp_index*/
+  200,  		  /* ~20C */
+  100,  		  /* 20~10C  */
+  50,   		  /* 10~5C */
+  0,			  /* 5~0C */ -5,   		  /* 0~-5C */ -10, 		   /* -5~-10C */ -3000,
+  /* -10C~ */
+};
+
+UINT32 *PD_M_COEF_TABLE_BOOT[] =
+{
+  /* mapping current to pd_m_coef table when booting*/
+  (UINT32 *) (PD_M_COEF),		/* ~20C,	using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* 20~10C,  using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* 10~5C,   using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* 5~0C,	using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* 0~-5C,   using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* -5~-10C, using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* -10C~,   using PD_M_COEF */
+};
+
+UINT32 *PD_M_COEF_TABLE[] =
+{
+  /* mapping current to pd_m_coef table*/
+  (UINT32 *) (PD_M_COEF),		/* ~20C,	using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* 20~10C,  using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* 10~5C,   using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* 5~0C,	using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* 0~-5C,   using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* -5~-10C, using PD_M_COEF */
+  (UINT32 *) (PD_M_COEF),		/* -10C~,   using PD_M_COEF */
+};
+
+UINT32 *PD_M_RESL_TABLE_BOOT[] =
+{
+  /* mapping current to pd_m_coef table when booting*/
+  (UINT32 *) (PD_M_RESL),		/* ~20C,	using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* 20~10C,  using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* 10~5C,   using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* 5~0C,	using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* 0~-5C,   using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* -5~-10C, using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* -10C~,   using PD_M_RESL */
+};
+
+UINT32 *PD_M_RESL_TABLE[] =
+{
+  /* mapping current to pd_m_coef table*/
+  (UINT32 *) (PD_M_RESL),		/* ~20C,	using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* 20~10C,  using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* 10~5C,   using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* 5~0C,	using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* 0~-5C,   using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* -5~-10C, using PD_M_RESL */
+  (UINT32 *) (PD_M_RESL),		/* -10C~,   using PD_M_RESL */
+};
+
+UINT32 CAPACITY_DEDUCTION_01p[] =
+{
+  0,  					  /* ~20C,    upper capacity 100 is usable */
+  0,						/* 20~10C,  upper capacity 95 is usable */
+  0,						/* 10~5C,   upper capacity 92 is usable */
+  0,						/* 5~0C,	upper capacity 90 is usable */
+  0,						/* 0~-5C,   upper capacity 87 is usable */
+  0,						/* -5~-10C, upper capacity 85 is usable */
+  0,						/* -10C~,   upper capacity 85 is usable */
 };
 
 /*========================================================================================

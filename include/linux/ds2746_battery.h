@@ -46,10 +46,12 @@ enum {
 /* MATT TODO: remove after integration */
 enum BATTERY_ID_ENUM {
 	BATTERY_ID_UNKNOWN = 0,
-	BATTERY_ID_SAMSUNG_1230MAH,
-	BATTERY_ID_LG_3260MAH,
-	BATTERY_ID_ATL_4000MAH,
-	BATTERY_ID_NUM, /* include unknown battery*/
+	BATTERY_ID_SONY_1300MAH_FORMOSA,
+	BATTERY_ID_SONY_1300MAH_HTE,
+	BATTERY_ID_SANYO_1300MAH_HTE,
+	BATTERY_ID_SANYO_1300MAH_TWS,
+	BATTERY_ID_HTC_EXTENDED_2300MAH_FORMOSA,
+	BATTERY_ID_NUM /* include unknown battery*/
 };
 
 /* power algorithm data structure and config data structure*/
