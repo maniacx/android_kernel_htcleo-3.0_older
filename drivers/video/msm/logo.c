@@ -23,7 +23,6 @@
 
 #include <linux/irq.h>
 #include <asm/system.h>
-#include <mach/debug_display.h>
 
 #define fb_width(fb)	((fb)->var.xres)
 #define fb_height(fb)	((fb)->var.yres)
@@ -47,14 +46,14 @@ int load_565rle_image(char *filename)
 
 	info = registered_fb[0];
 	if (!info) {
-		PR_DISP_WARN("%s: Can not access framebuffer\n",
+		printk(KERN_WARNING "%s: Can not access framebuffer\n",
 			__func__);
 		return -ENODEV;
 	}
 
 	fd = sys_open(filename, O_RDONLY, 0);
 	if (fd < 0) {
-		PR_DISP_WARN("%s: Can not open %s\n",
+		printk(KERN_WARNING "%s: Can not open %s\n",
 			__func__, filename);
 		return -ENOENT;
 	}
@@ -67,7 +66,7 @@ int load_565rle_image(char *filename)
 	sys_lseek(fd, (off_t)0, 0);
 	data = kmalloc(count, GFP_KERNEL);
 	if (!data) {
-		PR_DISP_WARN("%s: Can not alloc data\n", __func__);
+		printk(KERN_WARNING "%s: Can not alloc data\n", __func__);
 		err = -ENOMEM;
 		goto err_logo_close_file;
 	}
