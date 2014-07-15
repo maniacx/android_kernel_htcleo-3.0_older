@@ -21,15 +21,6 @@
 #include <linux/types.h>
 #include <linux/cpuidle.h>
 
-/* This constant is used in bootloader to decide actions. */
-#define RESTART_REASON_BOOT_BASE	0x77665500
-#define RESTART_REASON_BOOTLOADER	(RESTART_REASON_BOOT_BASE | 0x00)
-#define RESTART_REASON_REBOOT		(RESTART_REASON_BOOT_BASE | 0x01)
-#define RESTART_REASON_RECOVERY		(RESTART_REASON_BOOT_BASE | 0x02)
-#define RESTART_REASON_RAMDUMP		(RESTART_REASON_BOOT_BASE | 0xAA)
-#define RESTART_REASON_POWEROFF		(RESTART_REASON_BOOT_BASE | 0xBB)
-#define RESTART_REASON_ERASE_FLASH	(RESTART_REASON_BOOT_BASE | 0xEF)
-
 /*
    This restart constant is used for oem commands.
    The actual value is parsed from reboot commands.

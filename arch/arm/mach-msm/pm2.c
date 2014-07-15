@@ -174,7 +174,7 @@ static char *msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_NR] = {
 };
 
 static char *msm_pm_sleep_mode_labels[MSM_PM_SLEEP_MODE_NR] = {
-	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND] = " ",
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND] = "power_collapse_suspend",
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = "power_collapse",
 	[MSM_PM_SLEEP_MODE_APPS_SLEEP] = "apps_sleep",
 	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT] =
@@ -624,7 +624,7 @@ static int msm_pm_poll_state(int nr_grps, struct msm_pm_polled_group *grps)
 			if (all_set && all_clear && (any_set || any_clear))
 				return k;
 		}
-		udelay(1);
+		udelay(50);
 	}
 
 	printk(KERN_ERR "%s failed:\n", __func__);
@@ -1651,11 +1651,6 @@ static int msm_pm_enter(suspend_state_t state)
 	time = msm_timer_get_sclk_time(&period);
 #endif
 
-	if (board_mfg_mode() == 4) {/*power test mode*/
-		gpio_set_diag_gpio_table(
-			(unsigned long *)board_get_mfg_sleep_gpio_table());
-		pr_info("power test mode : gpio_set_diag_gpio_table\n");
-	}
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND, KERN_INFO,
 		"%s(): sleep limit %u\n", __func__, sleep_limit);
 
@@ -1851,9 +1846,29 @@ static void msm_pm_power_off(void)
 		;
 }
 
+#if defined(CONFIG_MACH_HTCLEO)
+static void htcleo_save_reset_reason(void)
+{
+	/* save restart_reason to be accesible in bootloader @ ramconsole - 0x1000*/
+	uint32_t *bootloader_reset_reason = ioremap(0x2FFB0000, PAGE_SIZE);
+
+	if (bootloader_reset_reason != NULL)
+	{
+		printk(KERN_INFO "msm_restart saving reason %x @ 0x2FFB0000 \n", restart_reason);
+
+		bootloader_reset_reason[0] = restart_reason;
+		bootloader_reset_reason[1] = restart_reason ^ 0x004b4c63; //XOR with cLK signature so we know is not trash
+	}
+}
+#endif
+
 static void msm_pm_restart(char str, const char *cmd)
 {
 	pr_info("%s: restart_reason 0x%x, cmd %s\n", __func__, restart_reason, (cmd) ? cmd : "NULL");
+
+#if defined(CONFIG_MACH_HTCLEO)
+	htcleo_save_reset_reason();
+#endif
 
 	/* always reboot device through proc comm */
 	if (restart_reason == RESTART_REASON_RIL_FATAL)
@@ -2034,14 +2049,7 @@ static int __init msm_pm_init(void)
 	}
 #endif
 
-#ifdef CONFIG_MACH_GOLFU
-	if (board_mfg_mode() == 8)
-		disable_hlt();
-	else
-		boot_lock_nohalt();
-#else
 	boot_lock_nohalt();
-#endif
 	return 0;
 }
 
