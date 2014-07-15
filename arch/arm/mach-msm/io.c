@@ -115,8 +115,10 @@ static struct map_desc qsd8x50_io_desc[] __initdata = {
 	MSM_DEVICE(SCPLL),
 	MSM_DEVICE(AD5),
 	MSM_DEVICE(MDC),
+	MSM_DEVICE(RAM_CONSOLE),
 	MSM_DEVICE(TCSR),
-#ifdef CONFIG_MSM_DEBUG_UART
+#if defined(CONFIG_DEBUG_MSM_UART1) || defined(CONFIG_DEBUG_MSM_UART2) || \
+	defined(CONFIG_DEBUG_MSM_UART3)
 	MSM_DEVICE(DEBUG_UART),
 #endif
 	{
