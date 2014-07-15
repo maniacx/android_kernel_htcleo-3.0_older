@@ -1328,9 +1328,10 @@ static int msm_pm_power_collapse_standalone(bool from_idle)
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND|MSM_PM_DEBUG_POWER_COLLAPSE,
 		KERN_INFO, "%s()\n", __func__);
 
+#if !defined(CONFIG_MACH_HTCLEO)
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_COLLAPSE, false);
 	WARN_ON(ret);
-
+#endif
 	msm_pm_boot_config_before_pc(smp_processor_id(),
 			virt_to_phys(msm_pm_collapse_exit));
 
@@ -1366,8 +1367,10 @@ static int msm_pm_power_collapse_standalone(bool from_idle)
 		KERN_INFO,
 		"%s(): msm_pm_collapse returned %d\n", __func__, collapsed);
 
+#if !defined(CONFIG_MACH_HTCLEO)
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
 	WARN_ON(ret);
+#endif
 
 	return 0;
 }
