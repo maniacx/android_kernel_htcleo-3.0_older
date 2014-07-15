@@ -1053,6 +1053,13 @@ static void __init msm_timer_init(void)
 	struct msm_clock *dgt = &msm_clocks[MSM_CLOCK_DGT];
 	struct msm_clock *gpt = &msm_clocks[MSM_CLOCK_GPT];
 
+#ifdef CONFIG_MACH_HTCLEO
+	printk("$$$ msm_timer_init $$$\n");
+	printk(" 1DIV = %08X\n", readl(MSM_CSR_BASE + 0x20));
+	writel(3, MSM_TMR_BASE + 0x20);
+	printk(" 2DIV = %08X\n", readl(MSM_CSR_BASE + 0x20));
+#endif
+
 	if (cpu_is_msm7x01() || cpu_is_msm7x25() || cpu_is_msm7x27() ||
 	    cpu_is_msm7x25a() || cpu_is_msm7x27a() || cpu_is_msm7x25aa() ||
 	    cpu_is_msm7x27aa()) {
@@ -1113,6 +1120,9 @@ static void __init msm_timer_init(void)
 		__raw_writel(1, clock->regbase + TIMER_CLEAR);
 		__raw_writel(0, clock->regbase + TIMER_COUNT_VAL);
 		__raw_writel(~0, clock->regbase + TIMER_MATCH_VAL);
+
+// Cotulla LEO FIX
+		while (msm_read_timer_count(clock, LOCAL_TIMER));
 
 		if ((clock->freq << clock->shift) == gpt_hz) {
 			clock->rollover_offset = 0;
