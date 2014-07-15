@@ -264,7 +264,6 @@ msm_i2c_interrupt(int irq, void *devid)
 		status, dev->msg->addr, dev->msg->flags, dev->last_addr,
 		dev->reg, dev->last_reg, dev->last_flag,
 		dev->cnt, dev->pos);
-
 	dev->err = err;
  out_complete:
 	complete(dev->complete);
@@ -663,7 +662,7 @@ msm_i2c_probe(struct platform_device *pdev)
 	spin_lock_init(&dev->lock);
 	platform_set_drvdata(pdev, dev);
 
-	clk_prepare_enable(clk);
+	clk_enable(clk);
 
 	if (pdata->rmutex) {
 		struct remote_mutex_id rmid;
@@ -683,6 +682,89 @@ msm_i2c_probe(struct platform_device *pdev)
 	printk(KERN_INFO "msm_i2c_probe: clk_ctl %x, %d Hz\n",
 	       clk_ctl, i2c_clk / (2 * ((clk_ctl & 0xff) + 3)));
 
+// Cotulla: this code caused problems on LEO 
+// ROOTCASE:
+// 
+// Backtrace for crash:
+//   
+//   msm_i2c_probe
+//   i2c_add_numbered_adapter
+//   tps_65023_probe
+//   tps65023_dcdc_get_voltage
+//   msm_i2c_xfer
+//   <codeflow top> 
+// Crash is here, because mutex is not inited
+// Mutex init located at the end of msm_i2c_probe() in the original code
+//
+// SOLUTION:
+//   Change order of operations in this function.
+//
+
+#if defined(CONFIG_ARCH_QSD8X50)
+
+	i2c_set_adapdata(&dev->adap_pri, dev);
+	dev->adap_pri.algo = &msm_i2c_algo;
+	strlcpy(dev->adap_pri.name,
+		"MSM I2C adapter-PRI",
+		sizeof(dev->adap_pri.name));
+
+	dev->adap_pri.nr = pdev->id;
+
+	i2c_set_adapdata(&dev->adap_aux, dev);
+	dev->adap_aux.algo = &msm_i2c_algo;
+	strlcpy(dev->adap_aux.name,
+		"MSM I2C adapter-AUX",
+		sizeof(dev->adap_aux.name));
+
+	dev->adap_aux.nr = pdev->id + 1;
+	ret = request_irq(dev->irq, msm_i2c_interrupt,
+			IRQF_TRIGGER_RISING, pdev->name, dev);
+	if (ret) {
+		dev_err(&pdev->dev, "request_irq failed\n");
+		goto err_request_irq_failed;
+	}
+	pm_qos_add_request(&dev->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+					     PM_QOS_DEFAULT_VALUE);
+	disable_irq(dev->irq);
+	dev->suspended = 0;
+	mutex_init(&dev->mlock);
+	dev->clk_state = 0;
+	/* Config GPIOs for primary and secondary lines */
+	pdata->msm_i2c_config_gpio(dev->adap_pri.nr, 1);
+	pdata->msm_i2c_config_gpio(dev->adap_aux.nr, 1);
+	clk_disable(dev->clk);
+	setup_timer(&dev->pwr_timer, msm_i2c_pwr_timer, (unsigned long) dev);
+
+
+	ret = i2c_add_numbered_adapter(&dev->adap_pri);
+	if (ret) {
+		dev_err(&pdev->dev, "Primary i2c_add_adapter failed\n");
+		goto err_i2c_add_adapter_failed;
+	}
+
+	ret = i2c_add_numbered_adapter(&dev->adap_aux);
+	if (ret) {
+		dev_err(&pdev->dev, "auxiliary i2c_add_adapter failed\n");
+		i2c_del_adapter(&dev->adap_pri);
+		goto err_i2c_add_adapter_failed;
+	}
+
+	return 0;
+
+err_i2c_add_adapter_failed:
+	free_irq(dev->irq, dev);
+err_request_irq_failed:
+	clk_disable(clk);
+	iounmap(dev->base);
+err_ioremap_failed:
+	kfree(dev);
+err_alloc_dev_failed:
+	clk_put(clk);
+err_clk_get_failed:
+	release_mem_region(mem->start, (mem->end - mem->start) + 1);
+	return ret;
+
+#else
 	i2c_set_adapdata(&dev->adap_pri, dev);
 	dev->adap_pri.algo = &msm_i2c_algo;
 	strlcpy(dev->adap_pri.name,
@@ -724,8 +806,7 @@ msm_i2c_probe(struct platform_device *pdev)
 	/* Config GPIOs for primary and secondary lines */
 	pdata->msm_i2c_config_gpio(dev->adap_pri.nr, 1);
 	pdata->msm_i2c_config_gpio(dev->adap_aux.nr, 1);
-	clk_disable_unprepare(dev->clk);
-	clk_prepare(dev->clk);
+	clk_disable(dev->clk);
 	setup_timer(&dev->pwr_timer, msm_i2c_pwr_timer, (unsigned long) dev);
 
 	return 0;
@@ -734,7 +815,7 @@ err_request_irq_failed:
 	i2c_del_adapter(&dev->adap_pri);
 	i2c_del_adapter(&dev->adap_aux);
 err_i2c_add_adapter_failed:
-	clk_disable_unprepare(clk);
+	clk_disable(clk);
 	iounmap(dev->base);
 err_ioremap_failed:
 	kfree(dev);
@@ -743,6 +824,7 @@ err_alloc_dev_failed:
 err_clk_get_failed:
 	release_mem_region(mem->start, (mem->end - mem->start) + 1);
 	return ret;
+#endif
 }
 
 static int
@@ -764,7 +846,6 @@ msm_i2c_remove(struct platform_device *pdev)
 	free_irq(dev->irq, dev);
 	i2c_del_adapter(&dev->adap_pri);
 	i2c_del_adapter(&dev->adap_aux);
-	clk_unprepare(dev->clk);
 	clk_put(dev->clk);
 	iounmap(dev->base);
 	kfree(dev);
@@ -788,7 +869,6 @@ static int msm_i2c_suspend(struct platform_device *pdev, pm_message_t state)
 		del_timer_sync(&dev->pwr_timer);
 		if (dev->clk_state != 0)
 			msm_i2c_pwr_mgmt(dev, 0);
-		clk_unprepare(dev->clk);
 	}
 
 	return 0;
@@ -797,7 +877,6 @@ static int msm_i2c_suspend(struct platform_device *pdev, pm_message_t state)
 static int msm_i2c_resume(struct platform_device *pdev)
 {
 	struct msm_i2c_dev *dev = platform_get_drvdata(pdev);
-	clk_prepare(dev->clk);
 	dev->suspended = 0;
 	return 0;
 }
