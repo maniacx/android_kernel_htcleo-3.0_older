@@ -20,6 +20,10 @@
 #include <linux/cpufreq.h>
 #include <linux/clk.h>
 #include <linux/mfd/tps65023.h>
+#ifdef CONFIG_REGULATOR_TPS65023
+#include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#endif
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -40,7 +44,7 @@
 #define SCPLL_STATUS_ADDR      (MSM_SCPLL_BASE + 0x18)
 #define SCPLL_FSM_CTL_EXT_ADDR (MSM_SCPLL_BASE + 0x10)
 
-#ifdef CONFIG_QSD_SVS
+#if defined(CONFIG_QSD_SVS) && !defined(CONFIG_REGULATOR_TPS65023)
 #define TPS65023_MAX_DCDC1	1600
 #else
 #define TPS65023_MAX_DCDC1	CONFIG_QSD_PMIC_DEFAULT_DCDC1
@@ -69,6 +73,19 @@ struct clkctl_acpu_speed {
 	int              vdd;
 	unsigned long    lpj; /* loops_per_jiffy */
 };
+
+#ifdef CONFIG_REGULATOR_TPS65023
+struct regulator {
+	struct device *dev;
+	struct list_head list;
+	int uA_load;
+	int min_uV;
+	int max_uV;
+	char *supply_name;
+	struct device_attribute dev_attr;
+	struct regulator_dev *rdev;
+};
+#endif
 
 struct clkctl_acpu_speed acpu_freq_tbl_998[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 0, 0, 14000, 0, 0, 1000},
@@ -166,6 +183,9 @@ struct clock_state {
 	struct mutex			lock;
 	struct clk			*ebi1_clk;
 	int (*acpu_set_vdd) (int mvolts);
+#ifdef CONFIG_REGULATOR_TPS65023
+	struct regulator                *regulator;
+#endif
 };
 
 static struct clock_state drv_state = { 0 };
@@ -383,6 +403,7 @@ static void config_pll(struct clkctl_acpu_speed *s)
 	writel(regval, SPSS_CLK_SEL_ADDR);
 }
 
+#ifndef CONFIG_REGULATOR_TPS65023
 static int acpuclk_set_vdd_level(int vdd)
 {
 	if (drv_state.acpu_set_vdd) {
@@ -395,6 +416,24 @@ static int acpuclk_set_vdd_level(int vdd)
 		return 0;
 	}
 }
+#else
+static int acpuclk_set_vdd_level(int vdd)
+{
+	if (!drv_state.regulator || IS_ERR(drv_state.regulator)) {
+		drv_state.regulator = regulator_get(NULL, "acpu_vcore");
+		if (IS_ERR(drv_state.regulator)) {
+			pr_info("acpuclk_set_vdd_level %d no regulator\n", vdd);
+			/* Assume that the PMIC supports scaling the processor
+			 * to its maximum frequency at its default voltage.
+			 */
+			return 0;
+		}
+		pr_info("acpuclk_set_vdd_level got regulator setting vdd_level %d \n", vdd);
+	}
+	vdd *= 1000; /* mV -> uV */
+	return regulator_set_voltage(drv_state.regulator, vdd, vdd);
+}
+#endif
 
 static int acpuclk_8x50_set_rate(int cpu, unsigned long rate,
 				 enum setrate_reason reason)
@@ -675,6 +714,7 @@ static int __init acpu_avs_init(int (*set_vdd) (int), int khz)
 }
 #endif
 
+#if !defined(CONFIG_REGULATOR_TPS65023)
 static int qsd8x50_tps65023_set_dcdc1(int mVolts)
 {
 	int rc = 0;
@@ -697,6 +737,7 @@ static int qsd8x50_tps65023_set_dcdc1(int mVolts)
 #endif
 	return rc;
 }
+#endif
 
 static struct acpuclk_data acpuclk_8x50_data = {
 	.set_rate = acpuclk_8x50_set_rate,
@@ -709,7 +750,9 @@ static struct acpuclk_data acpuclk_8x50_data = {
 static int __init acpuclk_8x50_init(struct acpuclk_soc_data *soc_data)
 {
 	mutex_init(&drv_state.lock);
+#if !defined(CONFIG_REGULATOR_TPS65023)
 	drv_state.acpu_set_vdd = qsd8x50_tps65023_set_dcdc1;
+#endif
 
 	drv_state.ebi1_clk = clk_get(NULL, "ebi1_acpu_clk");
 	BUG_ON(IS_ERR(drv_state.ebi1_clk));

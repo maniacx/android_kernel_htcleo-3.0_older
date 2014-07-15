@@ -700,7 +700,7 @@ msm_i2c_probe(struct platform_device *pdev)
 //   Change order of operations in this function.
 //
 
-#if defined(CONFIG_ARCH_QSD8X50)
+#if defined(CONFIG_ARCH_QSD8X50) && defined(CONFIG_REGULATOR_TPS65023)
 
 	i2c_set_adapdata(&dev->adap_pri, dev);
 	dev->adap_pri.algo = &msm_i2c_algo;
