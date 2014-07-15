@@ -1901,6 +1901,13 @@ static int msm_reboot_call
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned code = simple_strtoul(cmd + 4, 0, 16) & 0xff;
 			restart_reason = 0x6f656d00 | code;
+		} else if (!strncmp(cmd, "S", 1)) {
+			/*
+			 * Handle HD2 off-mode alarm
+			 * credits to Rick_1995(zeusk) & kokotas
+			 */
+			unsigned code = simple_strtoul(cmd + 1, 0, 16) & 0x00ffffff;
+			restart_reason = 0x53000000 | code;
 		} else {
 			restart_reason = 0x77665501;
 		}
