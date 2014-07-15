@@ -19,7 +19,13 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
+#include <linux/irqdesc.h>
 #include <asm/irq.h>
+#include <asm/io.h>
+#include <mach/fiq.h>
+#include <mach/msm_iomap.h>
+
+#include "sirc.h"
 
 static unsigned int int_enable;
 static unsigned int wake_enable;
@@ -37,8 +43,12 @@ static struct sirc_cascade_regs sirc_reg_table[] = {
 	{
 		.int_status  = SPSS_SIRC_IRQ_STATUS,
 		.cascade_irq = INT_SIRC_0,
+		.cascade_fiq = INT_SIRC_1,
 	}
 };
+
+static unsigned int save_type;
+static unsigned int save_polarity;
 
 /* Mask off the given interrupt. Keep the int_enable mask in sync with
    the enable reg, so it can be restored after power collapse. */
@@ -49,6 +59,7 @@ static void sirc_irq_mask(struct irq_data *d)
 	mask = 1 << (d->irq - FIRST_SIRC_IRQ);
 	writel(mask, sirc_regs.int_enable_clear);
 	int_enable &= ~mask;
+	mb();
 	return;
 }
 
@@ -60,6 +71,7 @@ static void sirc_irq_unmask(struct irq_data *d)
 
 	mask = 1 << (d->irq - FIRST_SIRC_IRQ);
 	writel(mask, sirc_regs.int_enable_set);
+	mb();
 	int_enable |= mask;
 	return;
 }
@@ -70,6 +82,7 @@ static void sirc_irq_ack(struct irq_data *d)
 
 	mask = 1 << (d->irq - FIRST_SIRC_IRQ);
 	writel(mask, sirc_regs.int_clear);
+	mb();
 	return;
 }
 
@@ -105,16 +118,34 @@ static int sirc_irq_set_type(struct irq_data *d, unsigned int flow_type)
 	val = readl(sirc_regs.int_type);
 	if (flow_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
 		val |= mask;
-		__irq_set_handler_locked(d->irq, handle_edge_irq);
 	} else {
 		val &= ~mask;
-		__irq_set_handler_locked(d->irq, handle_level_irq);
 	}
 
 	writel(val, sirc_regs.int_type);
+	mb();
 
 	return 0;
 }
+
+#if defined(CONFIG_MSM_FIQ_SUPPORT)
+void sirc_fiq_select(int irq, bool enable)
+{
+	uint32_t mask = 1 << (irq - FIRST_SIRC_IRQ);
+	uint32_t val;
+	unsigned long flags;
+
+	local_irq_save(flags);
+	val = readl(SPSS_SIRC_INT_SELECT);
+	if (enable)
+		val |= mask;
+	else
+		val &= ~mask;
+	writel(val, SPSS_SIRC_INT_SELECT);
+	mb();
+	local_irq_restore(flags);
+}
+#endif
 
 /* Finds the pending interrupt on the passed cascade irq and redrives it */
 static void sirc_irq_handler(unsigned int irq, struct irq_desc *desc)
@@ -127,6 +158,12 @@ static void sirc_irq_handler(unsigned int irq, struct irq_desc *desc)
 		(sirc_reg_table[reg].cascade_irq != irq))
 		reg++;
 
+	if (reg == ARRAY_SIZE(sirc_reg_table)) {
+		printk(KERN_ERR "%s: incorrect irq %d called\n",
+			__func__, irq);
+		return;
+	}
+
 	status = readl(sirc_reg_table[reg].int_status);
 	status &= SIRC_MASK;
 	if (status == 0)
@@ -138,7 +175,25 @@ static void sirc_irq_handler(unsigned int irq, struct irq_desc *desc)
 		;
 	generic_handle_irq(sirq+FIRST_SIRC_IRQ);
 
-	desc->irq_data.chip->irq_ack(&desc->irq_data);
+	irq_desc_get_chip(desc)->irq_ack(irq_get_irq_data(irq));
+}
+
+void msm_sirc_enter_sleep(void)
+{
+	save_type     = readl(sirc_regs.int_type);
+	save_polarity = readl(sirc_regs.int_polarity);
+	writel(wake_enable, sirc_regs.int_enable);
+	mb();
+	return;
+}
+
+void msm_sirc_exit_sleep(void)
+{
+	writel(save_type, sirc_regs.int_type);
+	writel(save_polarity, sirc_regs.int_polarity);
+	writel(int_enable, sirc_regs.int_enable);
+	mb();
+	return;
 }
 
 static struct irq_chip sirc_irq_chip = {
@@ -166,6 +221,10 @@ void __init msm_init_sirc(void)
 		irq_set_chained_handler(sirc_reg_table[i].cascade_irq,
 					sirc_irq_handler);
 		irq_set_irq_wake(sirc_reg_table[i].cascade_irq, 1);
+#if defined(CONFIG_MSM_FIQ_SUPPORT)
+		msm_fiq_select(sirc_reg_table[i].cascade_fiq);
+		msm_fiq_enable(sirc_reg_table[i].cascade_fiq);
+#endif
 	}
 	return;
 }
