@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -358,7 +358,8 @@ struct msm_mapped_buffer *msm_subsystem_map_buffer(unsigned long phys,
 					temp_phys += SZ_4K,
 					temp_va += SZ_4K) {
 				ret = iommu_map(d, temp_va, temp_phys,
-						 get_order(SZ_4K), 0);
+						get_order(SZ_4K),
+						(IOMMU_READ | IOMMU_WRITE));
 				if (ret) {
 					pr_err("%s: could not map iommu for"
 						" domain %p, iova %lx,"

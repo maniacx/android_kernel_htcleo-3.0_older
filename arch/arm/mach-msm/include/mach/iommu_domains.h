@@ -14,17 +14,17 @@
 #define _ARCH_IOMMU_DOMAINS_H
 
 enum {
-	VIDEO_DOMAIN,
-	CAMERA_DOMAIN,
-	DISPLAY_DOMAIN,
-	ROTATOR_DOMAIN,
-	MAX_DOMAINS
+        VIDEO_DOMAIN,
+        CAMERA_DOMAIN,
+        DISPLAY_DOMAIN,
+        ROTATOR_DOMAIN,
+        MAX_DOMAINS
 };
 
 enum {
-	VIDEO_FIRMWARE_POOL,
-	VIDEO_MAIN_POOL,
-	GEN_POOL,
+        VIDEO_FIRMWARE_POOL,
+        VIDEO_MAIN_POOL,
+        GEN_POOL,
 };
 
 
@@ -33,14 +33,14 @@ enum {
 extern struct iommu_domain *msm_get_iommu_domain(int domain_num);
 
 extern unsigned long msm_allocate_iova_address(unsigned int iommu_domain,
-					unsigned int partition_no,
-					unsigned long size,
-					unsigned long align);
+                                        unsigned int partition_no,
+                                        unsigned long size,
+                                        unsigned long align);
 
 extern void msm_free_iova_address(unsigned long iova,
-			unsigned int iommu_domain,
-			unsigned int partition_no,
-			unsigned long size);
+                        unsigned int iommu_domain,
+                        unsigned int partition_no,
+                        unsigned long size);
 
 extern unsigned long msm_subsystem_get_domain_no(int subsys_id);
 
@@ -49,60 +49,60 @@ extern unsigned long msm_subsystem_get_partition_no(int subsys_id);
 extern int msm_use_iommu(void);
 
 extern int msm_iommu_map_extra(struct iommu_domain *domain,
-						unsigned long start_iova,
-						unsigned long size,
-						unsigned long page_size,
-						int cached);
+                                                unsigned long start_iova,
+                                                unsigned long size,
+                                                unsigned long page_size,
+                                                int cached);
 
 extern void msm_iommu_unmap_extra(struct iommu_domain *domain,
-						unsigned long start_iova,
-						unsigned long size,
-						unsigned long page_size);
+                                                unsigned long start_iova,
+                                                unsigned long size,
+                                                unsigned long page_size);
 
 #else
 static inline struct iommu_domain
-	*msm_get_iommu_domain(int subsys_id) { return NULL; }
+        *msm_get_iommu_domain(int subsys_id) { return NULL; }
 
 
 
 static inline unsigned long msm_allocate_iova_address(unsigned int iommu_domain,
-					unsigned int partition_no,
-					unsigned long size,
-					unsigned long align) { return 0; }
+                                        unsigned int partition_no,
+                                        unsigned long size,
+                                        unsigned long align) { return 0; }
 
 static inline void msm_free_iova_address(unsigned long iova,
-			unsigned int iommu_domain,
-			unsigned int partition_no,
-			unsigned long size) { return; }
+                        unsigned int iommu_domain,
+                        unsigned int partition_no,
+                        unsigned long size) { return; }
 
 static inline unsigned long msm_subsystem_get_domain_no(int subsys_id)
 {
-	return 0xFFFFFFFF;
+        return 0xFFFFFFFF;
 }
 
 static inline unsigned long msm_subsystem_get_partition_no(int subsys_id)
 {
-	return 0xFFFFFFFF;
+        return 0xFFFFFFFF;
 }
 
 static inline int msm_use_iommu(void)
 {
-	return 0;
+        return 0;
 }
 
 static inline int msm_iommu_map_extra(struct iommu_domain *domain,
-						unsigned long start_iova,
-						unsigned long size,
-						unsigned long page_size,
-						int cached)
+                                                unsigned long start_iova,
+                                                unsigned long size,
+                                                unsigned long page_size,
+                                                int cached)
 {
-	return -ENODEV;
+        return -ENODEV;
 }
 
 static inline void msm_iommu_unmap_extra(struct iommu_domain *domain,
-						unsigned long start_iova,
-						unsigned long size,
-						unsigned long page_size)
+                                                unsigned long start_iova,
+                                                unsigned long size,
+                                                unsigned long page_size)
 {
 }
 #endif
