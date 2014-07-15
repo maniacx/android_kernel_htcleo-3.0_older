@@ -17,6 +17,9 @@
 #include <asm/setup.h>
 #include <linux/mtd/nand.h>
 
+static char *df_serialno;
+static char *board_sn;
+
 #define MFG_GPIO_TABLE_MAX_SIZE        0x400
 static unsigned char mfg_gpio_table[MFG_GPIO_TABLE_MAX_SIZE];
 
@@ -364,27 +367,6 @@ int __init parse_tag_mfg_gpio_table(const struct tag *tags)
 }
 __tagtable(ATAG_MFG_GPIO_TABLE, parse_tag_mfg_gpio_table);
 
-static char *emmc_tag;
-static int __init board_set_emmc_tag(char *get_hboot_emmc)
-{
-	if (strlen(get_hboot_emmc))
-		emmc_tag = get_hboot_emmc;
-	else
-		emmc_tag = NULL;
-	return 1;
-}
-__setup("androidboot.emmc=", board_set_emmc_tag);
-
-int board_emmc_boot(void)
-{
-	if (emmc_tag) {
-		if (!strcmp(emmc_tag, "true"))
-			return 1;
-	}
-
-	return 0;
-}
-
 char *board_get_mfg_sleep_gpio_table(void)
 {
 	return mfg_gpio_table;
@@ -415,6 +397,26 @@ int __init board_mfg_mode_init(char *s)
 }
 __setup("androidboot.mode=", board_mfg_mode_init);
 
+static int __init board_serialno_setup(char *serialno)
+{
+  char *str;
+
+  /* use default serial number when mode is factory2 */
+  if (board_mfg_mode() == 1 || !strlen(serialno))
+    str = df_serialno;
+  else
+    str = serialno;
+  board_sn = str;
+  return 1;
+}
+__setup("androidboot.serialno=", board_serialno_setup);
+
+char *board_serialno(void)
+{
+  return board_sn;
+}
+
+EXPORT_SYMBOL(board_serialno);
 
 int board_mfg_mode(void)
 {
