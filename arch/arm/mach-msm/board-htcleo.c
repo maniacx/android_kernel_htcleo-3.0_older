@@ -824,33 +824,6 @@ static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 		.latency = 8594,
 		.residency = 23740,
 	},
-
-	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN] = {
-		.idle_supported = 1,
-		.suspend_supported = 1,
-		.idle_enabled = 1,
-		.suspend_enabled = 1,
-		.latency = 4594,
-		.residency = 23740,
-	},
-
-	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT] = {
-		.idle_supported = 1,
-		.suspend_supported = 1,
-		.idle_enabled = 0,
-		.suspend_enabled = 1,
-		.latency = 443,
-		.residency = 1098,
-	},
-
-	[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT] = {
-		.idle_supported = 1,
-		.suspend_supported = 1,
-		.idle_enabled = 1,
-		.suspend_enabled = 1,
-		.latency = 2,
-		.residency = 0,
-	},
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -1094,11 +1067,7 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 	.guage_driver = GUAGE_DS2746,
 	.charger = LINEAR_CHARGER,
 	.m2a_cable_detect = 0,
-//	.force_no_rpc = 1,
 	.func_is_support_super_charger = htcleo_support_super_charger,
-/*	.int_data = {
-		.chg_int = HTCLEO_GPIO_BATTERY_OVER_CHG,
-	},*/
 };
 
 static struct platform_device htc_battery_pdev = {
@@ -1310,7 +1279,9 @@ static struct platform_device *devices[] __initdata =
 	&android_pmem_adsp_device,
 #ifdef CONFIG_USB_G_ANDROID
 	&usb_mass_storage_device,
+#ifdef CONFIG_USB_ANDROID_RNDIS
 	&rndis_device,
+#endif
 #endif
 	&msm_device_i2c,
 	&htc_battery_pdev,
@@ -1394,6 +1365,11 @@ static void __init msm_device_i2c_init(void)
 	msm_device_i2c.dev.platform_data = &msm_i2c_pdata;
 }
 
+///////////////////////////////////////////////////////////////////////
+// Clocks
+///////////////////////////////////////////////////////////////////////
+
+#ifdef CONFIG_PERFLOCK
 static unsigned htcleo_perf_acpu_table[] = {
 	245000000,
 	576000000,
@@ -1404,6 +1380,7 @@ static struct perflock_platform_data htcleo_perflock_data = {
 	.perf_acpu_table = htcleo_perf_acpu_table,
 	.table_size = ARRAY_SIZE(htcleo_perf_acpu_table),
 };
+#endif
 
 #define CT_CSR_PHYS		0xA8700000
 #define TCSR_SPI_MUX		(ct_csr_base + 0x54)
@@ -1694,22 +1671,6 @@ int __init ram_console_early_init(void);
 #endif
 #endif
 
-static void __init htcleo_allocate_memory_regions(void)
-{
-	unsigned long size;
-
-	size = MSM_FB_SIZE;
-	msm_fb_resources[0].start = MSM_FB_BASE;
-	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
-	pr_info("allocating %lu bytes at 0x%p (0x%lx physical) for fb\n",
-		size, __va(MSM_FB_BASE), (unsigned long) MSM_FB_BASE);
-}
-
-static void __init htcleo_init_early(void)
-{
-	htcleo_allocate_memory_regions();
-}
-
 static void __init htcleo_map_io(void)
 {
 	msm_map_qsd8x50_io();
@@ -1731,10 +1692,8 @@ MACHINE_START(HTCLEO, "htcleo")
 	.boot_params	= (CONFIG_PHYS_OFFSET + 0x00000100),
 	.fixup		= htcleo_fixup,
 	.map_io		= htcleo_map_io,
-    	.reserve	= qsd8x50_reserve,
+    .reserve	= qsd8x50_reserve,
 	.init_irq	= msm_init_irq,
 	.init_machine	= htcleo_init,
 	.timer		= &msm_timer,
-	.init_early     = htcleo_init_early
 MACHINE_END
-
