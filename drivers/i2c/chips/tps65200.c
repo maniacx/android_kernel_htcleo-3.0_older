@@ -752,7 +752,7 @@ static void tps65200_int_func(struct work_struct *work)
 			tps65200_i2c_write_byte(0x29, 0x01);
 			tps65200_i2c_write_byte(0x28, 0x00);
 #ifdef CONFIG_BATTERY_DS2746
-			reverse_protection_handler(REVERSE_PROTECTION_HAPPEND);
+//			reverse_protection_handler(REVERSE_PROTECTION_HAPPEND);
 #endif
 			send_tps_chg_int_notify(CHECK_INT2, 1);
 			cancel_delayed_work(&chg_int_data->int_work);
