@@ -51,7 +51,7 @@ config ARCH_QSD8X50
 	select CPU_USE_DOMAINS
 	select EMULATE_DOMAIN_MANAGER_V7
 	select MSM_GPIOMUX
-	select MSM_DALRPC
+	select MSM_DALRPC if !MACH_HTCLEO
 
 config ARCH_MSM8X60
 	bool "MSM8X60"
@@ -235,6 +235,54 @@ config MSM_REMOTE_SPINLOCK_SFPB
 config MSM_ADM3
 	bool
 
+config MSM_MDP31
+	bool
+	depends on ARCH_QSD8X50
+	default y
+
+config MSM_MDP40
+	bool
+	depends on ARCH_MSM7X30
+	default y
+
+config PERFLOCK
+        depends on CPU_FREQ
+        depends on ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_QSD8X50 || ARCH_MSM7X30 || ARCH_MSM7X00A || ARCH_MSM7X27A || ARCH_MSM7X25
+        default n
+        bool "HTC Performance Lock"
+
+config PERFLOCK_BOOT_LOCK
+        depends on PERFLOCK
+        depends on ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_QSD8X50 || ARCH_MSM7X30 || ARCH_MSM7X00A || ARCH_MSM7X27A || ARCH_MSM7X25
+        default n
+        bool "Boot Time Performance Lock"
+
+config PERFLOCK_SCREEN_POLICY
+        depends on PERFLOCK
+        depends on ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_QSD8X50 || ARCH_MSM7X00A || ARCH_MSM7X27A || ARCH_MSM7X25
+        default n
+        bool "Change Cpufreq Policy while Screen ON/OFF"
+
+config PERFLOCK_SCREEN_ON_MIN
+        depends on PERFLOCK_SCREEN_POLICY
+        int "Minimum speed while screen on"
+        default MSM_CPU_FREQ_ONDEMAND_MIN
+
+config PERFLOCK_SCREEN_ON_MAX
+        depends on PERFLOCK_SCREEN_POLICY
+        int "Maximum speed while screen on"
+        default MSM_CPU_FREQ_ONDEMAND_MAX
+
+config PERFLOCK_SCREEN_OFF_MIN
+        depends on PERFLOCK_SCREEN_POLICY
+        int "Minimum speed while screen off"
+        default MSM_CPU_FREQ_ONDEMAND_MIN
+
+config PERFLOCK_SCREEN_OFF_MAX
+        depends on PERFLOCK_SCREEN_POLICY
+        int "Maximum speed while screen off"
+        default MSM_CPU_FREQ_ONDEMAND_MIN
+
 menu "MSM Board Selection"
 
 config MACH_HALIBUT
@@ -331,6 +379,13 @@ config MACH_PRIMODD
 		help
 			Support for Primodd_ct (PDA phone).
 
+config MACH_HTCLEO
+	depends on ARCH_QSD8X50
+	default y
+	bool "HTC Leo"
+	help
+	  Select this to support the HTC Leo device
+
 config MACH_PRIMODS
 		depends on ARCH_MSM7X27A
 		depends on !MSM_STACKED_MEMORY
@@ -392,16 +447,6 @@ config ARCH_MSM7X30_SMD
        default n
        help
          For QCT SMD function, we need 7x30 rpcrouter and smd drivers.
-
-config OVERLAY_FORCE_UPDATE
-       depends on MACH_GLACIER || MACH_SPEEDY
-       depends on MSM_MDP40
-       default y
-       bool "Force overlay to update screen"
-       help
-         Update the screen when the overlay is updated.
-         Do not use this if your framework updates the
-         screen when the overlay is updated.
 
 config MACH_RUNNYMEDE
        depends on ARCH_MSM7X30
@@ -882,8 +927,15 @@ config PHYS_OFFSET
 	default "0x00200000" if !MSM_STACKED_MEMORY
 	default "0x00000000" if ARCH_QSD8X50 && MSM_SOC_REV_A
 	default "0x20000000" if ARCH_QSD8X50
+	default "0x11800000" if MACH_HTCLEO
 	default "0x48000000" if ARCH_MSM8X60
 	default "0x10000000"
+
+
+config VERY_EARLY_CONSOLE
+	bool "Support for very early consoles"
+	default n
+	
 
 config KERNEL_PMEM_EBI_REGION
 	bool "Enable in-kernel PMEM region for EBI"
@@ -920,6 +972,7 @@ config MSM_AMSS_VERSION
 	default 3200 if MSM_AMSS_VERSION_3200
 	default 1170 if MSM_AMSS_VERSION_1170
 	default 1200 if MSM_AMSS_VERSION_1200
+	default 1550 if MSM_AMSS_VERSION_1550
 
 choice
 	prompt "AMSS modem firmware version"
@@ -961,6 +1014,9 @@ choice
 
 	config MSM_AMSS_VERSION_1200
 		bool "1.2.00"
+
+	config MSM_AMSS_VERSION_1550
+		bool "1.5.50"
 
 endchoice
 
@@ -1186,7 +1242,7 @@ config BUILD_OMA_DM
 
 config QSD_SVS
 	bool "QSD Static Voltage Scaling"
-	depends on (MACH_QSD8X50_SURF || MACH_QSD8X50_FFA)
+	depends on ARCH_QSD8X50
 	default y
 	select TPS65023
 	help
@@ -1194,7 +1250,7 @@ config QSD_SVS
 
 config QSD_PMIC_DEFAULT_DCDC1
 	int "PMIC default output voltage"
-	depends on (MACH_QSD8X50_SURF || MACH_QSD8X50_FFA)
+	depends on ARCH_QSD8X50
 	default 1250
 	help
 	  This is the PMIC voltage at Linux kernel boot.
@@ -1577,22 +1633,13 @@ config MSM_CPU_FREQ_MIN
 
 endif # CPU_FREQ_MSM
 
-config ACPUCLOCK_OVERCLOCKING
-	bool "Enable support for CPU overclocking"
-	default n
-	depends on CPU_FREQ
-	depends on ARCH_MSM7X30
+config MSM_CPU_FREQ_ONDEMAND_MAX
+        int "Max"
+        default 384000
 
-config JESUS_PHONE
-	bool "Enable up to 1.8Ghz speeds"
-	default n
-	depends on ACPUCLOCK_OVERCLOCKING
-	depends on ARCH_MSM7X30
-
-config KGSL_OVERCLOCK
-	bool "Step up the clock speed on kgsl 3d0"
-	default n
-	depends on ARCH_MSM7X30
+config MSM_CPU_FREQ_ONDEMAND_MIN
+        int "Min"
+        default 245760
 
 config MSM_CPU_AVS
 	bool "Enable software controlled Adaptive Voltage Scaling (AVS)"
@@ -1617,7 +1664,7 @@ config MSM_AVS_HW
 config MSM_HW3D
 	tristate "MSM Hardware 3D Register Driver"
 	depends on ANDROID_PMEM
-	default y
+	default n
 	help
 	  Provides access to registers needed by the userspace OpenGL|ES
 	  library.
@@ -1656,28 +1703,6 @@ config MSM7KV2_AUDIO
 	help
 	  Enables QDSP5V2-based audio drivers for audio playbacks and
 	  voice call.
-
-choice
-	prompt "MSM7K v2 Audio Version"
-	depends on MSM7KV2_AUDIO
-	default MSM7KV2_2X_AUDIO
-
-	config MSM7KV2_1X_AUDIO
-	  bool
-	    prompt "1x Version"
-
-	config MSM7KV2_2X_AUDIO
-	  bool
-	    prompt "2x Version"
-endchoice
-
-config MSM7KV2_AUDIO_WORKAROUND
-	bool "MSM7K v2 audio workaround"
-	depends on MSM7KV2_AUDIO
-	default n
-	help
-	  Enables QDSP5V2-based audio workaround for devices that have
-	  issues with voice processing.
 
 config MSM_ADSP_REPORT_EVENTS
 	bool "Report modem events from the DSP"
@@ -1770,6 +1795,11 @@ config QSD_AUDIO
 	default y
 	help
 	  Provides PCM, MP3, and AAC audio playback.
+
+config QSD_AUDIO_CALLREC
+	bool "Call recording support [avs333]"
+	depends on QSD_AUDIO || MSM_QDSP6
+	default n
 
 config AUDIO_AAC_PLUS
 	depends on (MSM_ADSP || QSD_AUDIO || MSM7KV2_AUDIO)
@@ -1881,17 +1911,64 @@ config MSM_IDLE_WAIT_ON_MODEM
 	  for idle power collapse, wait the number of microseconds in case
 	  Modem becomes ready soon.
 
-config MICROP_COMMON
-	tristate "MICROP COMMON Driver"
-	depends on I2C
-	help
-	  HTC Microp-P support.
-
 config HTC_SDIO_DEBUG
 	tristate "HTC sdio driver debug"
 	default n
 	help
 	  Enable HTC sdio driver debug.
+
+config HTCLEO_ENABLE_MULTI_TOUCH
+	bool "Support for multitouch"
+	default y
+	depends on MACH_HTCLEO
+	help
+		Add multitouch support for touchscreen
+
+config HTCLEO_TOUCHSCREEN_FILTER
+	bool "Enable touchscreen filter"
+	default y
+	depends on MACH_HTCLEO
+	help
+		Enable input filtering for touchscreen
+
+choice
+	prompt "HTCLEO Keymapping"
+	default HTCLEO_KEYMAP_ANDROID
+
+	config HTCLEO_KEYMAP_ANDROID
+		bool "Keymapping for Android"
+	help
+		Optimized for the default Android GUI
+
+	config HTCLEO_KEYMAP_DPAD
+		bool "Alternative Keymapping"
+	help
+		Useful in GUIs not designed for touch-only use as this enables
+		four direction keys, alt key and enter key. Assumes landscape orientation.
+endchoice
+
+choice
+	prompt "HTCLEO Backlight API type"
+	default HTCLEO_BACKLIGHT_LED
+
+	config HTCLEO_BACKLIGHT_LED
+		bool "Backlight control via LED API"
+	help
+		Needed by Google Android
+
+	config HTCLEO_BACKLIGHT
+	select BACKLIGHT_LCD_SUPPORT
+		bool "Standard backlight API"
+	help
+		Works in standard Linux distros. Tested in GNOME.
+endchoice
+
+config HTCLEO_BTN_BACKLIGHT_MANAGER
+	depends on MACH_HTCLEO
+	default y
+	bool "Use button backlight manager"
+	help
+	  Use kernel button backlight manager to turn on/off backlight
 
 config HTC_HEADSET_MGR
 	tristate "HTC headset manager driver"
