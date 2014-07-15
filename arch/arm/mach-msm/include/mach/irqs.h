@@ -72,12 +72,23 @@
 
 #endif
 
+#define NR_PMIC8058_IRQS	256
+
+#define NR_GPIO_IRQS 165
+#define NR_MSM_IRQS 64
+#define NR_BOARD_IRQS 64
 #define NR_MICROP_IRQS 16
-#define NR_IRQS (NR_MSM_IRQS + NR_GPIO_IRQS + NR_BOARD_IRQS + NR_MICROP_IRQS)
-#define FIRST_MICROP_IRQ (NR_MSM_IRQS + NR_GPIO_IRQS + NR_BOARD_IRQS)
-#define MSM_GPIO_TO_INT(n) (NR_MSM_IRQS + (n))
-#define FIRST_GPIO_IRQ MSM_GPIO_TO_INT(0)
+#define FIRST_BOARD_IRQ (NR_MSM_IRQS + NR_SIRC_IRQS + NR_GPIO_IRQS)
+#define FIRST_MICROP_IRQ (FIRST_BOARD_IRQ + NR_BOARD_IRQS)
+#define NR_IRQS (NR_MSM_IRQS + NR_SIRC_IRQS + NR_GPIO_IRQS + NR_BOARD_IRQS \
+                + NR_MICROP_IRQS)
+#define MSM_INT_TO_GPIO(n) ((n) - NR_MSM_IRQS)
 #define MSM_uP_TO_INT(n) (FIRST_MICROP_IRQ + (n))
+#define MSM_INT_TO_GPIO(n) ((n) - NR_MSM_IRQS)
+#define MSM_uP_TO_INT(n) (FIRST_MICROP_IRQ + (n))
+#define FIRST_GPIO_IRQ MSM_GPIO_TO_INT(0)
+
+#define MSM_GPIO_TO_INT(n) (NR_MSM_IRQS + (n))
 #define MSM_INT_TO_REG(base, irq) (base + irq / 32)
 
 #endif
