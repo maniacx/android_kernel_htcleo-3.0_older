@@ -1324,6 +1324,7 @@ static int msm_pm_power_collapse_standalone(bool from_idle)
 {
 	int collapsed = 0;
 	int ret;
+	unsigned long saved_acpuclk_rate;
 
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND|MSM_PM_DEBUG_POWER_COLLAPSE,
 		KERN_INFO, "%s()\n", __func__);
@@ -1331,6 +1332,12 @@ static int msm_pm_power_collapse_standalone(bool from_idle)
 #if !defined(CONFIG_MACH_HTCLEO)
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_COLLAPSE, false);
 	WARN_ON(ret);
+#else
+	saved_acpuclk_rate = acpuclk_power_collapse();
+	if (!from_idle)
+		MSM_PM_DPRINTK(MSM_PM_DEBUG_CLOCK, KERN_INFO,
+			"%s(): change clock rate (old rate = %lu)\n", __func__,
+			saved_acpuclk_rate);
 #endif
 	msm_pm_boot_config_before_pc(smp_processor_id(),
 			virt_to_phys(msm_pm_collapse_exit));
@@ -1370,6 +1377,16 @@ static int msm_pm_power_collapse_standalone(bool from_idle)
 #if !defined(CONFIG_MACH_HTCLEO)
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
 	WARN_ON(ret);
+#else
+	if (!from_idle)
+		MSM_PM_DPRINTK(MSM_PM_DEBUG_CLOCK, KERN_INFO,
+			"%s(): restore clock rate to %lu\n", __func__,
+			saved_acpuclk_rate);
+
+	if (acpuclk_set_rate(smp_processor_id(), saved_acpuclk_rate,
+			SETRATE_PC) < 0)
+		printk(KERN_ERR "%s(): failed to restore clock rate(%lu)\n",
+			__func__, saved_acpuclk_rate);
 #endif
 
 	return 0;
