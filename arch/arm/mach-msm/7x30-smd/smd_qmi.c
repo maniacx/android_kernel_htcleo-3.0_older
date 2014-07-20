@@ -55,7 +55,18 @@ struct qmi_msg {
 #define STATE_QUERYING   1
 #define STATE_ONLINE     2
 
-struct qmi_ctxt {
+
+static smd_channel_t *ctrl_ch;
+static struct work_struct open_work;
+static struct work_struct read_work;
+static struct wake_lock wakelock;
+
+static struct qmi_ctxt qmi_device0;
+static struct qmi_ctxt qmi_device1;
+static struct qmi_ctxt qmi_device2;
+
+struct qmi_ctxt 
+{
 	struct miscdevice misc;
 
 	struct mutex lock;
@@ -75,12 +86,9 @@ struct qmi_ctxt {
 	unsigned char dns1[4];
 	unsigned char dns2[4];
 
-	smd_channel_t *ch;
 	const char *ch_name;
-	struct wake_lock wake_lock;
+	int ch_num;	
 
-	struct work_struct open_work;
-	struct work_struct read_work;
 };
 
 static struct qmi_ctxt *qmi_minor_to_ctxt(unsigned n);
@@ -91,9 +99,6 @@ static void qmi_open_work(struct work_struct *work);
 void qmi_ctxt_init(struct qmi_ctxt *ctxt, unsigned n)
 {
 	mutex_init(&ctxt->lock);
-	INIT_WORK(&ctxt->read_work, qmi_read_work);
-	INIT_WORK(&ctxt->open_work, qmi_open_work);
-	wake_lock_init(&ctxt->wake_lock, WAKE_LOCK_SUSPEND, ctxt->misc.name);
 	ctxt->ctl_txn_id = 1;
 	ctxt->wds_txn_id = 1;
 	ctxt->wds_busy = 1;
@@ -114,8 +119,8 @@ static void qmi_dump_msg(struct qmi_msg *msg, const char *prefix)
 	unsigned sz, n;
 	unsigned char *x;
 
-	if (!verbose)
-		return;
+	//if (!verbose)
+	//	return;
 
 	D("qmi: %s: svc=%02x cid=%02x tid=%04x type=%04x size=%04x\n",
 	       prefix, msg->service, msg->client_id,
@@ -250,8 +255,14 @@ static int qmi_send(struct qmi_ctxt *ctxt, struct qmi_msg *msg)
 	*data++ = msg->size;
 	*data++ = msg->size >> 8;
 
+	// add channel number here 
+	*(uint32_t*)(msg->tlv + msg->size) = ctxt->ch_num; 
+	printk("send %d %d\n", len + 1 + 4, ctxt->ch_num);
+	//	 print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, msg->tlv - hlen, len + 1 + 4);
+
 	/* len + 1 takes the interface selector into account */
-	r = smd_write(ctxt->ch, msg->tlv - hlen, len + 1);
+	// and add ch_num_size
+	r = smd_write(ctrl_ch, msg->tlv - hlen, len + 1 + 4);
 
 	if (r != len) {
 		return -1;
@@ -459,31 +470,56 @@ static void qmi_process_qmux(struct qmi_ctxt *ctxt,
 
 static void qmi_read_work(struct work_struct *ws)
 {
-	struct qmi_ctxt *ctxt = container_of(ws, struct qmi_ctxt, read_work);
-	struct smd_channel *ch = ctxt->ch;
+	//struct qmi_ctxt *ctxt = container_of(ws, struct qmi_ctxt, read_work);
+	//struct smd_channel *ch = ctxt->ch;
 	unsigned char buf[QMI_MAX_PACKET];
+	struct qmi_ctxt *ctxt;
 	int sz;
+	uint32_t chnum;
 
 	for (;;) {
-		sz = smd_cur_packet_size(ch);
+		sz = smd_cur_packet_size(ctrl_ch);
 		if (sz == 0)
 			break;
-		if (sz < smd_read_avail(ch))
+		if (sz < smd_read_avail(ctrl_ch))
 			break;
 		if (sz > QMI_MAX_PACKET) {
-			smd_read(ch, 0, sz);
+			smd_read(ctrl_ch, 0, sz);
 			continue;
 		}
-		if (smd_read(ch, buf, sz) != sz) {
+		if (smd_read(ctrl_ch, buf, sz) != sz) {
 			E("qmi: not enough data?!\n");
 			continue;
 		}
+
+		printk("packet: %d\n", sz);
+		//		print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, buf, sz);
+
+		if (sz <= 4)
+		{
+			printk("packet size less 4\n");
+			continue;
+		}
+		chnum = *(uint32_t*)&buf[sz - 4];
+		printk("chnum = %d\n", chnum);
 
 		/* interface selector must be 1 */
 		if (buf[0] != 0x01)
 			continue;
 
-		qmi_process_qmux(ctxt, buf + 1, sz - 1);
+		if (qmi_device0.ch_num == chnum)
+			ctxt = &qmi_device0;
+		else if (qmi_device1.ch_num == chnum)
+			ctxt = &qmi_device1;
+		else if (qmi_device2.ch_num == chnum)
+			ctxt = &qmi_device2;
+		else
+		{
+			printk("bad chnum %d\n", chnum);
+			continue;
+		}
+
+		qmi_process_qmux(ctxt, buf + 1, sz - 1 - 4);
 	}
 }
 
@@ -491,29 +527,42 @@ static int qmi_request_wds_cid(struct qmi_ctxt *ctxt);
 
 static void qmi_open_work(struct work_struct *ws)
 {
-	struct qmi_ctxt *ctxt = container_of(ws, struct qmi_ctxt, open_work);
+	struct qmi_ctxt *ctxt; //= container_of(ws, struct qmi_ctxt, open_work);
+
+	ctxt = &qmi_device0;
 	mutex_lock(&ctxt->lock);
 	qmi_request_wds_cid(ctxt);
 	mutex_unlock(&ctxt->lock);
+
+	ctxt = &qmi_device1;
+	mutex_lock(&ctxt->lock);	
+	qmi_request_wds_cid(ctxt);
+	mutex_unlock(&ctxt->lock);
+
+	ctxt = &qmi_device2;
+	mutex_lock(&ctxt->lock);	
+	qmi_request_wds_cid(ctxt);
+	mutex_unlock(&ctxt->lock);
+
 }
 
 static void qmi_notify(void *priv, unsigned event)
 {
-	struct qmi_ctxt *ctxt = priv;
+	//struct qmi_ctxt *ctxt = priv;
 
 	switch (event) {
 	case SMD_EVENT_DATA: {
 		int sz;
-		sz = smd_cur_packet_size(ctxt->ch);
-		if ((sz > 0) && (sz <= smd_read_avail(ctxt->ch))) {
-			wake_lock_timeout(&ctxt->wake_lock, HZ / 2);
-			queue_work(qmi_wq, &ctxt->read_work);
+		sz = smd_cur_packet_size(ctrl_ch);
+		if ((sz > 0) && (sz <= smd_read_avail(ctrl_ch))) {
+			wake_lock_timeout(&wakelock, HZ / 2);
+			queue_work(qmi_wq, &read_work);
 		}
 		break;
 	}
 	case SMD_EVENT_OPEN:
 		D("qmi: smd opened\n");
-		queue_work(qmi_wq, &ctxt->open_work);
+		queue_work(qmi_wq, &open_work);
 		break;
 	case SMD_EVENT_CLOSE:
 		D("qmi: smd closed\n");
@@ -644,7 +693,7 @@ static int qmi_print_state(struct qmi_ctxt *ctxt, char *buf, int max)
 	}
 
 	i = scnprintf(buf, max, "STATE=%s\n", statename);
-	i += scnprintf(buf + i, max - i, "CID=%d\n", ctxt->misc.minor);
+	i += scnprintf(buf + i, max - i, "CID=%d\n",ctxt->wds_client_id);
 
 	if (ctxt->state != STATE_ONLINE) {
 		return i;
@@ -673,6 +722,7 @@ static ssize_t qmi_read(struct file *fp, char __user *buf,
 	int len;
 	int r;
 
+	printk("+qmi_read %d\n", count);
 	mutex_lock(&ctxt->lock);
 	for (;;) {
 		if (ctxt->state_dirty) {
@@ -694,6 +744,7 @@ static ssize_t qmi_read(struct file *fp, char __user *buf,
 	if (copy_to_user(buf, msg, len))
 		return -EFAULT;
 
+	printk("-qmi_read %d\n", len);
 	return len;
 }
 
@@ -713,6 +764,8 @@ static ssize_t qmi_write(struct file *fp, const char __user *buf,
 
 	if (copy_from_user(cmd, buf, len))
 		return -EFAULT;
+
+	printk("+write %s %d\n", cmd, count);
 
 	cmd[len] = 0;
 
@@ -756,9 +809,11 @@ retry_up:
 		qmi_network_up(ctxt, cmd+3);
 		mutex_unlock(&ctxt->lock);
 	} else {
+		printk(" bad command\n");
 		return -EINVAL;
 	}
 
+	printk("-write %d\n", count);
 	return count;
 }
 
@@ -767,20 +822,35 @@ static int qmi_open(struct inode *ip, struct file *fp)
 	struct qmi_ctxt *ctxt = qmi_minor_to_ctxt(MINOR(ip->i_rdev));
 	int r = 0;
 
+// TEST - disable GPRS
+//	return -1;
 	if (!ctxt) {
 		E("unknown qmi misc %d\n", MINOR(ip->i_rdev));
 		return -ENODEV;
 	}
+	printk("open %s %d\n", ctxt->ch_name, ctxt->ch_num);
 
 	fp->private_data = ctxt;
 
 	mutex_lock(&ctxt->lock);
-	if (ctxt->ch == 0)
-		r = smd_open(ctxt->ch_name, &ctxt->ch, ctxt, qmi_notify);
+
+	if (ctrl_ch == NULL)
+	{
+		printk("first open\n");
+		r = smd_open("CONTROL", &ctrl_ch, ctxt, qmi_notify);		 
+	}
+	else
+	{
+		printk("already opened\n");
+		r = 0;
+	}
+
+
 	if (r == 0)
 		wake_up(&qmi_wait_queue);
 	mutex_unlock(&ctxt->lock);
 
+	printk("-qmi_open %d\n", r);
 	return r;
 }
 
@@ -798,7 +868,8 @@ static struct file_operations qmi_fops = {
 };
 
 static struct qmi_ctxt qmi_device0 = {
-	.ch_name = "SMD_DATA5_CNTL",
+	.ch_name = "SMD_DATA5",
+	.ch_num = 11,
 	.misc = {
 		.minor = MISC_DYNAMIC_MINOR,
 		.name = "qmi0",
@@ -806,7 +877,8 @@ static struct qmi_ctxt qmi_device0 = {
 	}
 };
 static struct qmi_ctxt qmi_device1 = {
-	.ch_name = "SMD_DATA6_CNTL",
+	.ch_name = "SMD_DATA6",
+	.ch_num = 12,
 	.misc = {
 		.minor = MISC_DYNAMIC_MINOR,
 		.name = "qmi1",
@@ -814,7 +886,8 @@ static struct qmi_ctxt qmi_device1 = {
 	}
 };
 static struct qmi_ctxt qmi_device2 = {
-	.ch_name = "SMD_DATA7_CNTL",
+	.ch_name = "SMD_DATA7",
+	.ch_num = 13,
 	.misc = {
 		.minor = MISC_DYNAMIC_MINOR,
 		.name = "qmi2",
@@ -840,6 +913,10 @@ static int __init qmi_init(void)
 	qmi_wq = create_singlethread_workqueue("qmi");
 	if (qmi_wq == 0)
 		return -ENOMEM;
+
+	wake_lock_init(&wakelock, WAKE_LOCK_SUSPEND, "qmi");
+	INIT_WORK(&read_work, qmi_read_work);
+	INIT_WORK(&open_work, qmi_open_work);
 
 	qmi_ctxt_init(&qmi_device0, 0);
 	qmi_ctxt_init(&qmi_device1, 1);

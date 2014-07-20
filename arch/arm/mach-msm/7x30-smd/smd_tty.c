@@ -30,6 +30,10 @@
 #include <mach/msm_smd.h>
 #include "smd_private.h"
 
+#ifdef CONFIG_MACH_HTCLEO
+#include <../../../arch/arm/mach-msm/board-htcleo.h>
+#endif
+
 #define MAX_SMD_TTYS 37
 
 static DEFINE_MUTEX(smd_tty_lock);
@@ -116,7 +120,11 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 	if (n == 0)
 		name = "SMD_DS";
 	else if (n == 1)
+#if defined(CONFIG_MACH_HTCLEO)
+		name = "SMD_DATA1";
+#else
 		name = "SMD_DIAG";
+#endif
 	else if (n == 7)
 		name = "SMD_DATA1";
 	else if (n == 9)
@@ -198,12 +206,49 @@ static void smd_tty_close(struct tty_struct *tty, struct file *f)
 static int smd_tty_write(struct tty_struct *tty, const unsigned char *buf, int len)
 {
 	struct smd_tty_info *info = tty->driver_data;
-	int avail;
+	int avail, ret;
+#ifdef CONFIG_MACH_HTCLEO
+	static int init = 0;
+	// seems to start the modem
+	const unsigned char* firstcall ="AT@BRIC=0\r";
+	// set functionality to low power mode
+	const unsigned char* secondcall="AT+CFUN=0\r";
+	// deregister from the network
+	const unsigned char* thirdcall ="AT+COPS=2\r";
+	unsigned int call_len;
+#endif
 
 	/* if we're writing to a packet channel we will
 	** never be able to write more data than there
 	** is currently space for
 	*/
+
+#ifdef CONFIG_MACH_HTCLEO
+	if(len>7 && !init && htcleo_is_nand_boot()) {
+		pr_info("NAND boot, writing additional init commands to /dev/smd0");
+
+		call_len = strlen(firstcall);
+		avail = smd_write_avail(info->ch);
+		if (call_len > avail)
+			call_len = avail;
+		ret = smd_write(info->ch, firstcall, call_len);
+
+		call_len = strlen(secondcall);
+		avail = smd_write_avail(info->ch);
+		if (call_len > avail)
+			call_len = avail;
+		ret = smd_write(info->ch, secondcall, call_len);
+
+		call_len = strlen(thirdcall);
+		avail = smd_write_avail(info->ch);
+		if (call_len > avail)
+			call_len = avail;
+		ret = smd_write(info->ch, thirdcall, call_len);
+
+		init=1;
+	}
+#endif
+
 	avail = smd_write_avail(info->ch);
 	if (len > avail)
 		len = avail;
