@@ -296,7 +296,7 @@ static struct dal_channel *dal_open_channel(const char *name, uint32_t cpu)
 	/* quick sanity check to avoid trying to talk to
 	 * some non-DAL channel...
 	 */
-	if (strncmp(name, "DAL", 3) && strncmp(name, "SMD_DAL", 7))
+	if (strncmp(name, "DSP_DAL", 7) && strncmp(name, "SMD_DAL", 7))
 		return 0;
 
 	mutex_lock(&dal_channel_list_lock);
