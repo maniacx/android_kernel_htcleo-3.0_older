@@ -120,6 +120,7 @@ __tagtable(ATAG_MAGLDR_BOOT, parse_tag_nand_boot);
 ///////////////////////////////////////////////////////////////////////
 // Regulator
 ///////////////////////////////////////////////////////////////////////
+#ifdef CONFIG_REGULATOR_TPS65023
 
 static struct regulator_consumer_supply tps65023_dcdc1_supplies[] =
 {
@@ -170,6 +171,8 @@ static struct regulator_init_data tps65023_data[5] =
         },
     },
 };
+
+#endif
 ///////////////////////////////////////////////////////////////////////
 // Headset
 ///////////////////////////////////////////////////////////////////////
@@ -284,10 +287,12 @@ static struct i2c_board_info base_i2c_devices[] =
 		// Only a dummy
 		I2C_BOARD_INFO(LEO_TOUCH_DRV_NAME, 0x22),
 	},
+#ifdef CONFIG_REGULATOR_TPS65023
 	{
 		I2C_BOARD_INFO("tps65023", 0x48),
 		.platform_data = tps65023_data,
 	},
+#endif
 	{
 		I2C_BOARD_INFO(MICROP_I2C_NAME, 0xCC >> 1),
 		.platform_data = &microp_data,
