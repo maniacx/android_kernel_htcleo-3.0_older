@@ -27,8 +27,12 @@
  */
 
 #define ACDB_DAL_DEVICE     0x02000069
-//#define ACDB_DAL_PORT       "SMD_DAL_AM_AUD"
+
+#ifdef CONFIG_ARCH_MSM7X30_SMD
 #define ACDB_DAL_PORT       "SMD_DAL00"
+#else
+#define ACDB_DAL_PORT       "DAL00"
+#endif
 
 #define ACDB_OP_IOCTL       DAL_OP_FIRST_DEVICE_API
 
