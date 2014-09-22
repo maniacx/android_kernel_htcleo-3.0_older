@@ -1606,8 +1606,8 @@ static inline u8 _usb_addr(struct ci13xxx_ep *ep)
 
 static void usb_chg_stop(struct work_struct *w)
 {
-	USB_INFO("disable charger\n");
-	htc_battery_charger_disable();
+//	USB_INFO("disable charger\n");
+//	htc_battery_charger_disable();
 }
 
 /**
