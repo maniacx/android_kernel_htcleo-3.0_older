@@ -66,7 +66,6 @@
 #include <linux/usb/otg.h>
 
 #include "ci13xxx_udc.h"
-#include <mach/htc_battery_common.h>
 
 
 /******************************************************************************
