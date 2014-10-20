@@ -67,11 +67,19 @@ struct smd_tty_info {
 #define LOOPBACK_IDX 36
 static char *smd_ch_name[] = {
 	[0] = "DS",
+#ifdef CONFIG_MACH_HTCLEO
+	[1] = "DATA1",
+#else
 	[1] = "APPS_FM",
+#endif
 	[2] = "APPS_RIVA_BT_ACL",
 	[3] = "APPS_RIVA_BT_CMD",
 	[4] = "MBALBRIDGE",
+#ifdef CONFIG_MACH_HTCLEO
+	[7] = "APPS_FM",
+#else
 	[7] = "DATA1",
+#endif
 	/* Use DATA4 rather than DATA9 for modemlind on 8x60 */
 	[9] = "DATA4",
 #ifdef CONFIG_BUILD_OMA_DM
@@ -87,11 +95,19 @@ static char *smd_ch_name[] = {
 
 static uint32_t smd_ch_edge[] = {
 	[0] = SMD_APPS_MODEM,
+#ifdef CONFIG_MACH_HTCLEO
+	[1] = SMD_APPS_MODEM,
+#else
 	[1] = SMD_APPS_WCNSS,
+#endif
 	[2] = SMD_APPS_WCNSS,
 	[3] = SMD_APPS_WCNSS,
 	[4] = SMD_APPS_MODEM,
+#ifdef CONFIG_MACH_HTCLEO
+	[7] = SMD_APPS_WCNSS,
+#else
 	[7] = SMD_APPS_MODEM,
+#endif
 	/* Use DATA4 rather than DATA9 for modemlind on 8x60 */
 	[9] = SMD_APPS_MODEM,
 #ifdef CONFIG_BUILD_OMA_DM
