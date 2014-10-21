@@ -1457,7 +1457,9 @@ static void __init qsd8x50_calculate_reserve_sizes(void)
 
 static int qsd8x50_paddr_to_memtype(unsigned int paddr)
 {
-	return MEMTYPE_EBI1;
+	if (paddr >= 0x11800000 && paddr < 0x160C0000)
+		return MEMTYPE_EBI1;
+	return MEMTYPE_NONE;
 }
 
 static struct reserve_info qsd8x50_reserve_info __initdata = {
