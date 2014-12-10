@@ -575,6 +575,15 @@ static struct platform_device htcleo_rfkill =
 ///////////////////////////////////////////////////////////////////////
 
 static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 1,
+		.suspend_enabled = 1,
+		.latency = 8594,
+		.residency = 23740,
+	},
+
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE] = {
 		.idle_supported = 1,
 		.suspend_supported = 1,
@@ -591,6 +600,15 @@ static struct msm_pm_platform_data msm_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 		.suspend_enabled = 1,
 		.latency = 443,
 		.residency = 1098,
+	},
+
+	[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT] = {
+		.idle_supported = 1,
+		.suspend_supported = 1,
+		.idle_enabled = 1,
+		.suspend_enabled = 1,
+		.latency = 2,
+		.residency = 0,
 	},
 };
 

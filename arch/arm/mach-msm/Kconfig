@@ -1107,12 +1107,6 @@ choice
 
 	config MSM7X00A_SLEEP_WAIT_FOR_INTERRUPT
 		bool "Wait for interrupt"
-
-	config MSM7X00A_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN
-		bool "Power collapse suspend no xo shutdown"
-
-	config MSM7X00A_SLEEP_MODE_POWER_COLLAPSE_STANDALONE
-		bool "Power collapse standalone"
 endchoice
 
 config MSM7X00A_SLEEP_MODE
@@ -1122,8 +1116,6 @@ config MSM7X00A_SLEEP_MODE
 	default 2 if MSM7X00A_SLEEP_MODE_APPS_SLEEP
 	default 3 if MSM7X00A_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT
 	default 4 if MSM7X00A_SLEEP_WAIT_FOR_INTERRUPT
-	default 5 if MSM7X00A_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN,
-	default 6 if MSM7X00A_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
 
 choice
 	prompt "Idle sleep mode"
