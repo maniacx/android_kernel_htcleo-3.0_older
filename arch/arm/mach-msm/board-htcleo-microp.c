@@ -48,6 +48,8 @@
 static uint32_t microp_als_kadc;
 static int als_power_control=0;
 static DEFINE_MUTEX(capella_cm3602_lock);
+static struct wake_lock microp_i2c_wakelock;
+static struct i2c_client *private_microp_client;
 
 
 extern void p_sensor_irq_handler(void);
@@ -222,6 +224,7 @@ int microp_spi_vote_enable(int spi_device, uint8_t enable)
 
 }
 
+#if 0
 static int microp_read_adc(uint8_t channel, uint16_t *value)
 {
 	struct i2c_client *client;
@@ -246,6 +249,7 @@ static int microp_read_adc(uint8_t channel, uint16_t *value)
 	*value = data[0] << 8 | data[1];
 	return 0;
 }
+#endif
 
 /**
  * GPI functions
@@ -547,7 +551,7 @@ static void register_microp_devices(struct platform_device *devices, int num)
 static int microp_i2c_probe(struct i2c_client *client,
 			    const struct i2c_device_id *id)
 {
-	struct microp_i2c_platform_data *pdata;
+	struct microp_i2c_platform_data *pdata= NULL;
 	struct microp_i2c_client_data *cdata;
 	uint8_t data[6];
 	int ret;

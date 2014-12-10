@@ -480,9 +480,6 @@ static void lcdc_dma_start(void *priv, uint32_t addr, uint32_t stride,
 {
 	struct mdp_lcdc_info *lcdc = priv;
 
-	struct mdp_info *mdp = lcdc->mdp;
-	uint32_t dma2_cfg;
-
 #ifdef CONFIG_MSM_MDP31
 	if (lcdc->mdp->dma_config_dirty) {
 
@@ -495,6 +492,9 @@ static void lcdc_dma_start(void *priv, uint32_t addr, uint32_t stride,
 	mdp_writel(lcdc->mdp, stride, MDP_DMA_P_IBUF_Y_STRIDE);
 	mdp_writel(lcdc->mdp, addr, MDP_DMA_P_IBUF_ADDR);
 #else
+	struct mdp_info *mdp = lcdc->mdp;
+	uint32_t dma2_cfg;
+
 	if (lcdc->mdp->dma_config_dirty) {
 		uint32_t fmt;
 		uint32_t dma_fmt;

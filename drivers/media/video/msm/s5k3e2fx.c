@@ -2842,7 +2842,7 @@ static uint32_t s5k3e2fx_get_pict_max_exp_lc(void)
 static int s5k3e2fx_set_fps(struct fps_cfg *fps)
 {
 	/* input is new fps in Q10 format */
-	int rc = 0;
+	// int rc = 0;
 
 	s5k3e2fx_ctrl->fps_divider = fps->fps_div;
 
@@ -2867,6 +2867,7 @@ static int s5k3e2fx_set_fps(struct fps_cfg *fps)
 set_fps_done:
 	return rc;
 #endif
+	return 0;
 }
 
 static int s5k3e2fx_write_exp_gain(uint16_t gain, uint32_t line)

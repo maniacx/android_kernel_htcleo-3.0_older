@@ -261,6 +261,8 @@ enum {
 		(((pull) & 0x3) << 15)		| \
 		(((drvstr) & 0xF) << 17))
 
+void config_gpio_table(uint32_t *table, int len);
+
 #ifdef CONFIG_MSM_PROC_COMM
 void msm_proc_comm_reset_modem_now(void);
 int msm_proc_comm(unsigned cmd, unsigned *data1, unsigned *data2);

@@ -195,7 +195,7 @@ static long acoustic_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case ACOUSTIC_UPDATE_ADIE: 
 	{
-		unsigned data = 0xE5;
+//		unsigned data = 0xE5;
 
 		D("ioctl: ACOUSTIC_UPDATE_ADIE called %d.\n", current->pid);
 

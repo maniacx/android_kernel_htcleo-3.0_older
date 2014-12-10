@@ -1323,7 +1323,9 @@ power_collapse_bail:
 static int msm_pm_power_collapse_standalone(bool from_idle)
 {
 	int collapsed = 0;
+#if !defined(CONFIG_MACH_HTCLEO)
 	int ret;
+#endif
 	unsigned long saved_acpuclk_rate;
 
 	MSM_PM_DPRINTK(MSM_PM_DEBUG_SUSPEND|MSM_PM_DEBUG_POWER_COLLAPSE,

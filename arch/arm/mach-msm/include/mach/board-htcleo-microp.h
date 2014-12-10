@@ -6,10 +6,6 @@
 
 #include <linux/ioctl.h>
 
-static struct wake_lock microp_i2c_wakelock;
-
-static struct i2c_client *private_microp_client;
-
 struct microp_i2c_platform_data {
 	struct platform_device *microp_devices;
 	int			num_devices;

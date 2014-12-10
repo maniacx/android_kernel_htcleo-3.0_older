@@ -330,7 +330,8 @@ static int __init ram_console_init(struct ram_console_buffer *buffer,
 static int ram_console_early_init_done = 0;
 int __init ram_console_early_init(void)
 {
-	if (ram_console_early_init_done) return;
+	if (ram_console_early_init_done)
+		return 0;
 	ram_console_early_init_done = 1;
 
 	return ram_console_init((struct ram_console_buffer *)

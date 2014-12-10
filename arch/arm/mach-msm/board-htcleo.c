@@ -312,210 +312,6 @@ static struct i2c_board_info base_i2c_devices[] =
 // USB
 ///////////////////////////////////////////////////////////////////////
 
-#define USB_LINK_RESET_TIMEOUT      (msecs_to_jiffies(10))
-#define CLKRGM_APPS_RESET_USBH      37
-#define CLKRGM_APPS_RESET_USB_PHY   34
-
-#define ULPI_VERIFY_MAX_LOOP_COUNT  3
-static void *usb_base;
-#ifndef MSM_USB_BASE
-#define MSM_USB_BASE              ((unsigned)usb_base)
-#endif
-static unsigned htcleo_ulpi_read(void __iomem *usb_base, unsigned reg)
-{
-	unsigned timeout = 100000;
-
-	/* initiate read operation */
-	writel(ULPI_RUN | ULPI_READ | ULPI_ADDR(reg),
-	       USB_ULPI_VIEWPORT);
-
-	/* wait for completion */
-	while ((readl(USB_ULPI_VIEWPORT) & ULPI_RUN) && (--timeout))
-		cpu_relax();
-
-	if (timeout == 0) {
-		printk(KERN_ERR "ulpi_read: timeout %08x\n",
-			readl(USB_ULPI_VIEWPORT));
-		return 0xffffffff;
-	}
-	return ULPI_DATA_READ(readl(USB_ULPI_VIEWPORT));
-}
-
-static int htcleo_ulpi_write(void __iomem *usb_base, unsigned val, unsigned reg)
-{
-	unsigned timeout = 10000;
-
-	/* initiate write operation */
-	writel(ULPI_RUN | ULPI_WRITE |
-	       ULPI_ADDR(reg) | ULPI_DATA(val),
-	       USB_ULPI_VIEWPORT);
-
-	/* wait for completion */
-	while ((readl(USB_ULPI_VIEWPORT) & ULPI_RUN) && (--timeout))
-		cpu_relax();
-
-	if (timeout == 0) {
-		printk(KERN_ERR "ulpi_write: timeout\n");
-		return -1;
-	}
-
-	return 0;
-}
-
-void msm_hsusb_apps_reset_link(int reset)
-{
-	int ret;
-	unsigned usb_id = CLKRGM_APPS_RESET_USBH;
-
-	if (reset)
-		ret = msm_proc_comm(PCOM_CLK_REGIME_SEC_RESET_ASSERT,
-				&usb_id, NULL);
-	else
-		ret = msm_proc_comm(PCOM_CLK_REGIME_SEC_RESET_DEASSERT,
-				&usb_id, NULL);
-	if (ret)
-		printk(KERN_INFO "%s: Cannot set reset to %d (%d)\n",
-			__func__, reset, ret);
-}
-EXPORT_SYMBOL(msm_hsusb_apps_reset_link);
-
-void msm_hsusb_apps_reset_phy(void)
-{
-	int ret;
-	unsigned usb_phy_id = CLKRGM_APPS_RESET_USB_PHY;
-
-	ret = msm_proc_comm(PCOM_CLK_REGIME_SEC_RESET_ASSERT,
-			&usb_phy_id, NULL);
-	if (ret) {
-		printk(KERN_INFO "%s: Cannot assert (%d)\n", __func__, ret);
-		return;
-	}
-	msleep(1);
-	ret = msm_proc_comm(PCOM_CLK_REGIME_SEC_RESET_DEASSERT,
-			&usb_phy_id, NULL);
-	if (ret) {
-		printk(KERN_INFO "%s: Cannot assert (%d)\n", __func__, ret);
-		return;
-	}
-}
-EXPORT_SYMBOL(msm_hsusb_apps_reset_phy);
-
-static int msm_hsusb_phy_verify_access(void __iomem *usb_base)
-{
-	int temp;
-
-	for (temp = 0; temp < ULPI_VERIFY_MAX_LOOP_COUNT; temp++) {
-		if (htcleo_ulpi_read(usb_base, ULPI_DEBUG) != (unsigned)-1)
-			break;
-		msm_hsusb_apps_reset_phy();
-	}
-
-	if (temp == ULPI_VERIFY_MAX_LOOP_COUNT) {
-		pr_err("%s: ulpi read failed for %d times\n",
-				__func__, ULPI_VERIFY_MAX_LOOP_COUNT);
-		return -1;
-	}
-
-	return 0;
-}
-
-static unsigned msm_hsusb_ulpi_read_with_reset(void __iomem *usb_base, unsigned reg)
-{
-	int temp;
-	unsigned res;
-
-	for (temp = 0; temp < ULPI_VERIFY_MAX_LOOP_COUNT; temp++) {
-		res = htcleo_ulpi_read(usb_base, reg);
-		if (res != -1)
-			return res;
-		msm_hsusb_apps_reset_phy();
-	}
-
-	pr_err("%s: ulpi read failed for %d times\n",
-			__func__, ULPI_VERIFY_MAX_LOOP_COUNT);
-
-	return -1;
-}
-
-static int msm_hsusb_ulpi_write_with_reset(void __iomem *usb_base,
-		unsigned val, unsigned reg)
-{
-	int temp;
-	int res;
-
-	for (temp = 0; temp < ULPI_VERIFY_MAX_LOOP_COUNT; temp++) {
-		res = htcleo_ulpi_write(usb_base, val, reg);
-		if (!res)
-			return 0;
-		msm_hsusb_apps_reset_phy();
-	}
-
-	pr_err("%s: ulpi write failed for %d times\n",
-			__func__, ULPI_VERIFY_MAX_LOOP_COUNT);
-	return -1;
-}
-
-static int msm_hsusb_phy_caliberate(void __iomem *usb_base)
-{
-	int ret;
-	unsigned res;
-
-	ret = msm_hsusb_phy_verify_access(usb_base);
-	if (ret)
-		return -ETIMEDOUT;
-
-	res = msm_hsusb_ulpi_read_with_reset(usb_base, ULPI_FUNC_CTRL_CLR);
-	if (res == -1)
-		return -ETIMEDOUT;
-
-	res = msm_hsusb_ulpi_write_with_reset(usb_base,
-			res | ULPI_SUSPENDM,
-			ULPI_FUNC_CTRL_CLR);
-	if (res)
-		return -ETIMEDOUT;
-
-	msm_hsusb_apps_reset_phy();
-
-	return msm_hsusb_phy_verify_access(usb_base);
-}
-
-void msm_hsusb_8x50_phy_reset(void)
-{
-	u32 temp;
-	unsigned long timeout;
-	int ret, usb_phy_error;
-	printk(KERN_INFO "msm_hsusb_phy_reset\n");
-	usb_base = ioremap(MSM_HSUSB_PHYS, 4096);
-
-	msm_hsusb_apps_reset_link(1);
-	msm_hsusb_apps_reset_phy();
-	msm_hsusb_apps_reset_link(0);
-
-	/* select ULPI phy */
-	temp = (readl(USB_PORTSC) & ~PORTSC_PTS);
-	writel(temp | PORTSC_PTS_ULPI, USB_PORTSC);
-
-	if ((ret = msm_hsusb_phy_caliberate(usb_base))) {
-		usb_phy_error = 1;
-		pr_err("msm_hsusb_phy_caliberate returned with %i\n", ret);
-		return;
-	}
-
-	/* soft reset phy */
-	writel(USBCMD_RESET, USB_USBCMD);
-	timeout = jiffies + USB_LINK_RESET_TIMEOUT;
-	while (readl(USB_USBCMD) & USBCMD_RESET) {
-		if (time_after(jiffies, timeout)) {
-			pr_err("usb link reset timeout\n");
-			break;
-		}
-		msleep(1);
-	}
-	usb_phy_error = 0;
-
-	return;
-}
-
 static int htcleo_phy_init_seq[] ={0x0C, 0x31, 0x30, 0x32, 0x1D, 0x0D, 0x1D, 0x10, -1};
 
 static struct msm_otg_platform_data msm_otg_pdata = {
@@ -523,36 +319,6 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_PERIPHERAL,
 	.otg_control		= OTG_PHY_CONTROL,
 };
-
-static struct usb_mass_storage_platform_data mass_storage_pdata = {
-	.nluns		= 1,
-	.vendor		= "HTC",
-	.product	= "HD2",
-	.release	= 0x0100,
-};
-
-static struct platform_device usb_mass_storage_device = {
-	.name	= "usb_mass_storage",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &mass_storage_pdata,
-	},
-};
-
-#ifdef CONFIG_USB_ANDROID_RNDIS
-static struct usb_ether_platform_data rndis_pdata = {
-	.vendorID	= 0x0bb4,
-	.vendorDescr	= "HTC",
-};
-
-static struct platform_device rndis_device = {
-	.name	= "rndis",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &rndis_pdata,
-	},
-};
-#endif
 
 static struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x0bb4,
@@ -566,7 +332,6 @@ static struct android_usb_platform_data android_usb_pdata = {
 	.functions = usb_functions_all,
 	.fserial_init_string = "tty:modem,tty:autobot,tty:serial",
 	.nluns = 1,
-	.usb_id_pin_gpio = HTCLEO_GPIO_USB_ID_PIN,
 };
 
 static struct platform_device android_usb_device = {
@@ -591,21 +356,10 @@ void htcleo_add_usb_devices(void)
 	}
 
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
-	//msm_device_gadget_peripheral.dev.platform_data = &msm_gadget_pdata;
 	msm_device_gadget_peripheral.dev.parent = &msm_device_otg.dev;
-	//usb_gpio_init();
 	platform_device_register(&msm_device_gadget_peripheral);
 	platform_device_register(&android_usb_device);
 }
-
-static int __init htcleo_board_serialno_setup(char *serialno)
-{
-	android_usb_pdata.serial_number = serialno;
-	return 1;
-}
-__setup("androidboot.serialno=", htcleo_board_serialno_setup);
-
-
 
 ///////////////////////////////////////////////////////////////////////
 // Flashlight
@@ -1156,12 +910,6 @@ static struct platform_device *devices[] __initdata =
 	&ion_dev,
 #endif
 	&android_pmem_adsp_device,
-#ifdef CONFIG_USB_G_ANDROID
-	&usb_mass_storage_device,
-#ifdef CONFIG_USB_ANDROID_RNDIS
-	&rndis_device,
-#endif
-#endif
 	&msm_device_i2c,
 	&htc_battery_pdev,
 	&ds2746_battery_pdev,
@@ -1242,104 +990,6 @@ static void __init msm_device_i2c_init(void)
 {
 	msm_i2c_gpio_init();
 	msm_device_i2c.dev.platform_data = &msm_i2c_pdata;
-}
-
-///////////////////////////////////////////////////////////////////////
-// Clocks
-///////////////////////////////////////////////////////////////////////
-
-#ifdef CONFIG_PERFLOCK
-static unsigned htcleo_perf_acpu_table[] = {
-	245000000,
-	576000000,
-	998400000,
-};
-
-static struct perflock_platform_data htcleo_perflock_data = {
-	.perf_acpu_table = htcleo_perf_acpu_table,
-	.table_size = ARRAY_SIZE(htcleo_perf_acpu_table),
-};
-#endif
-
-#define CT_CSR_PHYS		0xA8700000
-#define TCSR_SPI_MUX		(ct_csr_base + 0x54)
-static int msm_qsd_spi_dma_config(void)
-{
-	void __iomem *ct_csr_base = 0;
-	u32 spi_mux;
-	int ret = 0;
-
-	ct_csr_base = ioremap(CT_CSR_PHYS, PAGE_SIZE);
-	if (!ct_csr_base) {
-		pr_err("%s: Could not remap %x\n", __func__, CT_CSR_PHYS);
-		return -1;
-	}
-
-	spi_mux = readl(TCSR_SPI_MUX);
-	switch (spi_mux) {
-	case (1):
-		qsd_spi_resources[4].start  = DMOV_HSUART1_RX_CHAN;
-		qsd_spi_resources[4].end    = DMOV_HSUART1_TX_CHAN;
-		qsd_spi_resources[5].start  = DMOV_HSUART1_RX_CRCI;
-		qsd_spi_resources[5].end    = DMOV_HSUART1_TX_CRCI;
-		break;
-	case (2):
-		qsd_spi_resources[4].start  = DMOV_HSUART2_RX_CHAN;
-		qsd_spi_resources[4].end    = DMOV_HSUART2_TX_CHAN;
-		qsd_spi_resources[5].start  = DMOV_HSUART2_RX_CRCI;
-		qsd_spi_resources[5].end    = DMOV_HSUART2_TX_CRCI;
-		break;
-	case (3):
-		qsd_spi_resources[4].start  = DMOV_CE_OUT_CHAN;
-		qsd_spi_resources[4].end    = DMOV_CE_IN_CHAN;
-		qsd_spi_resources[5].start  = DMOV_CE_OUT_CRCI;
-		qsd_spi_resources[5].end    = DMOV_CE_IN_CRCI;
-		break;
-	default:
-		ret = -1;
-	}
-
-	iounmap(ct_csr_base);
-	return ret;
-}
-
-static uint32_t qsd_spi_gpio_config_data[] = {
-	PCOM_GPIO_CFG(17, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	PCOM_GPIO_CFG(18, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	PCOM_GPIO_CFG(19, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	PCOM_GPIO_CFG(20, 1, GPIO_CFG_INPUT,  GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	PCOM_GPIO_CFG(21, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_16MA),
-};
-
-static int msm_qsd_spi_gpio_config(void)
-{
-	config_gpio_table(qsd_spi_gpio_config_data,
-		ARRAY_SIZE(qsd_spi_gpio_config_data));
-
-	/* Set direction for SPI_PWR */
-	gpio_direction_output(21, 1);
-
-	return 0;
-}
-
-static void msm_qsd_spi_gpio_release(void)
-{
-}
-
-static struct msm_spi_platform_data qsd_spi_pdata = {
-	.max_clock_speed = 19200000,
-	.gpio_config  = msm_qsd_spi_gpio_config,
-	.gpio_release = msm_qsd_spi_gpio_release,
-	.dma_config = msm_qsd_spi_dma_config,
-};
-
-static void __init msm_qsd_spi_init(void)
-{
-	int rc;
-	rc = gpio_request(21, "spi_pwr");
-	if (rc)
-		pr_err("Failed requesting spi_pwr gpio\n");
-	qsd_device_spi.dev.platform_data = &qsd_spi_pdata;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -1474,12 +1124,6 @@ static void __init qsd8x50_reserve(void)
 	msm_reserve();
 }
 
-static struct resource msm_fb_resources[] = {
-  {
-    .flags  = IORESOURCE_DMA,
-  }
-};
-
 ///////////////////////////////////////////////////////////////////////
 // Init
 ///////////////////////////////////////////////////////////////////////
@@ -1488,8 +1132,6 @@ static void __init htcleo_init(void)
 {
 	printk("htcleo_init()\n");
 	msm_hw_reset_hook = htcleo_reset;
-
-	htcleo_board_serialno_setup(board_serialno());
 
 	do_grp_reset();
 	do_sdc1_reset();
@@ -1509,7 +1151,6 @@ static void __init htcleo_init(void)
 	htcleo_audio_init();
 
 	msm_device_i2c_init();
-	msm_qsd_spi_init();
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 

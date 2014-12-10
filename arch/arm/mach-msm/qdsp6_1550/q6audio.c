@@ -169,7 +169,7 @@ static struct q6_hw_info q6_audio_hw[Q6_HW_COUNT] =
 
 extern int global_now_phone_call;
 
-static struct audio_client * audio_test(void);
+//static struct audio_client * audio_test(void);
 static void callback(void *data, int len, void *cookie);
 static int audio_init(struct audio_client *ac);
 static int audio_info(struct audio_client *ac);
@@ -211,7 +211,7 @@ static struct q6audio_analog_ops default_analog_ops;
 static struct q6audio_analog_ops *analog_ops = &default_analog_ops;
 static uint32_t tx_clk_freq = 8000;
 static int tx_mute_status = 0;
-static int rx_vol_level = 100;
+//static int rx_vol_level = 100;
 static char acdb_file[64] = "default.acdb";
 static uint32_t tx_acdb = 0;
 static uint32_t rx_acdb = 0;
@@ -349,7 +349,7 @@ static inline int adie_mute_path(struct dal_client *client,
 static int adie_refcount;
 
 static struct dal_client *adie;
-static struct dal_client *adsp;
+//static struct dal_client *adsp;
 static struct dal_client *acdb;
 
 static int adie_enable(void)
@@ -2811,7 +2811,7 @@ int acdb_get_table(int dev_id, int sample_rate)
         }
         return 0;
 }
-
+#if 0
 static struct audio_client * audio_test(void)
 {
     struct audio_client *ac = 0;
@@ -2925,6 +2925,7 @@ static struct audio_client * audio_test(void)
 
     return ac2;
 }
+#endif
 
 
 // END OF FILE

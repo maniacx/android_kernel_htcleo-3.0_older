@@ -1101,6 +1101,7 @@ static bool pc_clk_is_local(struct clk *clk)
 	return false;
 }
 
+#if 0
 static int pc_pll_request(unsigned id, unsigned on)
 {
 	if(debug_mask&DEBUG_UNKNOWN_CMD)
@@ -1108,6 +1109,7 @@ static int pc_pll_request(unsigned id, unsigned on)
 
 	return 0;
 }
+#endif
 
 struct clk_ops clk_ops_pcom = {
 	.enable = pc_clk_enable,
