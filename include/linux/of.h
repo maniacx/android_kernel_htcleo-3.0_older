@@ -196,7 +196,7 @@ extern struct property *of_find_property(const struct device_node *np,
 					 const char *name,
 					 int *lenp);
 extern int of_property_read_u32_array(const struct device_node *np,
-				      char *propname,
+				      const char *propname,
 				      u32 *out_values,
 				      size_t sz);
 
@@ -241,8 +241,18 @@ static inline bool of_have_populated_dt(void)
 	return false;
 }
 
+#define for_each_child_of_node(parent, child) \
+	while (0)
+
+static inline int of_device_is_compatible(const struct device_node *device,
+					  const char *name)
+{
+	return 0;
+}
+
 static inline int of_property_read_u32_array(const struct device_node *np,
-				char *propname, u32 *out_values, size_t sz)
+					     const char *propname,
+					     u32 *out_values, size_t sz)
 {
 	return -ENOSYS;
 }
@@ -260,10 +270,17 @@ static inline const void *of_get_property(const struct device_node *node,
 	return NULL;
 }
 
+static inline struct device_node *of_parse_phandle(struct device_node *np,
+						   const char *phandle_name,
+						   int index)
+{
+	return NULL;
+}
+
 #endif /* CONFIG_OF */
 
 static inline int of_property_read_u32(const struct device_node *np,
-				       char *propname,
+				       const char *propname,
 				       u32 *out_value)
 {
 	return of_property_read_u32_array(np, propname, out_value, 1);

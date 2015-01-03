@@ -686,7 +686,7 @@ int get_img(struct mdp_img *img, struct mdp_blit_req *req,
 		   unsigned long *start, unsigned long *len,
 		   struct file** filep, struct ion_handle **ihdlp)
 {
-	int put_needed, ret = 0;
+	int put_needed; // ret = 0;
 	struct file *file;
 #ifdef CONFIG_ION_MSM
 	struct msmfb_info *msmfb = (struct msmfb_info *)info->par;
@@ -721,7 +721,7 @@ int get_img(struct mdp_img *img, struct mdp_blit_req *req,
 	}
 
 #ifdef CONFIG_ION_MSM
-	*ihdlp = ion_import_fd(msmfb->iclient, img->memory_id);
+	*ihdlp = ion_import_dma_buf(msmfb->iclient, img->memory_id);
 	if (IS_ERR_OR_NULL(*ihdlp))
 		return -1;
 
