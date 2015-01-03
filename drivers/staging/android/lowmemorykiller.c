@@ -44,7 +44,6 @@
 #else
 #define _ZONE ZONE_NORMAL
 #endif
->>>>>>> 7596ed2... android: lowmemorykiller: add lmk parameters tunning code.
 
 static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
